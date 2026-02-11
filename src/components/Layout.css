@@ -54,3 +54,10 @@
   padding: 16px;
   overflow: auto;
 }
+
+.logout-btn {
+  margin-left: auto;
+  background: #111827;
+  color: #fff;
+  border-color: #374151;
+}

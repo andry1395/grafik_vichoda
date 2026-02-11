@@ -4,6 +4,7 @@ import { ScheduleTable } from '../components/ScheduleTable';
 import { dataService } from '../services/dataService';
 import type { SpecialValue } from '../types';
 import { buildDateKey, daysInMonth } from '../utils/date';
+import { exportMonthToXlsx } from '../utils/export';
 
 export const AdminMonthPage = (): JSX.Element => {
   const params = useParams<{ month: string }>();
@@ -11,9 +12,13 @@ export const AdminMonthPage = (): JSX.Element => {
   const monthKey = `2026-${String(month).padStart(2, '0')}`;
   const [tick, setTick] = useState(0);
   const [notice, setNotice] = useState<string>('');
+  const [employeeSearch, setEmployeeSearch] = useState('');
 
   const appData = dataService.getAppData();
-  const employees = appData.employees.filter((employee) => employee.active);
+  const activeEmployees = appData.employees.filter((employee) => employee.active);
+  const employees = activeEmployees.filter((employee) =>
+    employee.full_name.toLocaleLowerCase('ru-RU').includes(employeeSearch.trim().toLocaleLowerCase('ru-RU'))
+  );
   const objects = appData.objects;
   const monthData = dataService.getMonth(monthKey);
 
@@ -35,6 +40,11 @@ export const AdminMonthPage = (): JSX.Element => {
       {notice && <div className="notice">{notice}</div>}
 
       <div className="toolbar-row">
+        <input
+          value={employeeSearch}
+          onChange={(event) => setEmployeeSearch(event.target.value)}
+          placeholder="Поиск сотрудника по имени"
+        />
         <button type="button" onClick={() => rerender('Сохранено')}>
           Сохранить
         </button>
@@ -44,7 +54,7 @@ export const AdminMonthPage = (): JSX.Element => {
             dataService.publishMonth(
               monthKey,
               dates,
-              employees.map((employee) => employee.id)
+              activeEmployees.map((employee) => employee.id)
             );
             rerender('Месяц опубликован');
           }}
@@ -59,6 +69,20 @@ export const AdminMonthPage = (): JSX.Element => {
           }}
         >
           Снять публикацию
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            exportMonthToXlsx({
+              year: 2026,
+              month,
+              employees,
+              objects,
+              getCellValue: (employeeId, date) => dataService.getCellValue(monthKey, employeeId, date)
+            });
+          }}
+        >
+          Выгрузить XLSX
         </button>
       </div>
 

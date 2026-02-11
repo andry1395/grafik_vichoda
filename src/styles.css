@@ -95,3 +95,9 @@ button {
   padding: 8px;
   text-align: left;
 }
+
+.notice-error {
+  background: #fee2e2;
+  border-color: #dc2626;
+  color: #991b1b;
+}

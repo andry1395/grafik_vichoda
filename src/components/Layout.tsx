@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { MONTHS_2026 } from '../utils/constants';
+import { setAdminSessionUnlocked } from '../utils/adminAuth';
 import './Layout.css';
 
 export const Layout = (): JSX.Element => {
@@ -9,6 +10,16 @@ export const Layout = (): JSX.Element => {
         <Link to="/admin/2026/01" className="logo">
           График объектов 2026
         </Link>
+        <button
+          type="button"
+          className="logout-btn"
+          onClick={() => {
+            setAdminSessionUnlocked(false);
+            window.location.hash = '#/admin/2026/01';
+          }}
+        >
+          Выйти из админ-режима
+        </button>
       </header>
       <aside className="sidebar">
         <h3>Админ</h3>
