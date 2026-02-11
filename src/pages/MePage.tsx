@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { ScheduleTable } from '../components/ScheduleTable';
 import { dataService } from '../services/dataService';
 import { MONTHS_2026 } from '../utils/constants';
-import { buildDateKey, daysInMonth, formatDateRu } from '../utils/date';
+import { coverageIssueToText, getCoverageIssues } from '../utils/coverage';
+import { exportMonthToXlsx } from '../utils/export';
 
 export const MePage = (): JSX.Element => {
   const appData = dataService.getAppData();
@@ -19,25 +20,17 @@ export const MePage = (): JSX.Element => {
     return active.filter((employee) => employee.full_name.toLocaleLowerCase('ru-RU').includes(normalized));
   }, [appData.employees, nameFilter]);
 
-  const offDaysByEmployee = useMemo(() => {
-    const result: Record<string, string[]> = {};
-    if (monthData.status !== 'published') return result;
-
-    for (const employee of visibleEmployees) {
-      const items: string[] = [];
-      const dayCount = daysInMonth(2026, month);
-      for (let day = 1; day <= dayCount; day += 1) {
-        const date = buildDateKey(2026, month, day);
-        const entry = dataService.getVisibleEntryForEmployee(monthKey, employee.id, date);
-        if (!entry || (entry.kind === 'SPECIAL' && entry.special === 'OFF')) {
-          items.push(formatDateRu(date));
-        }
-      }
-      result[employee.id] = items;
-    }
-
-    return result;
-  }, [month, monthData.status, monthKey, visibleEmployees]);
+  const coverageIssues = useMemo(
+    () =>
+      getCoverageIssues({
+        year: 2026,
+        month,
+        employees: appData.employees.filter((employee) => employee.active),
+        objects: appData.objects,
+        getCellValue: (employeeId, date) => dataService.getCellValue(monthKey, employeeId, date)
+      }),
+    [appData.employees, appData.objects, month, monthKey]
+  );
 
   return (
     <section>
@@ -57,39 +50,53 @@ export const MePage = (): JSX.Element => {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={() => {
+            exportMonthToXlsx({
+              year: 2026,
+              month,
+              employees: visibleEmployees,
+              objects: appData.objects,
+              getCellValue: (employeeId, date) => dataService.getCellValue(monthKey, employeeId, date)
+            });
+          }}
+        >
+          Выгрузить XLSX
+        </button>
       </div>
+
+      {coverageIssues.length > 0 && (
+        <div className="notice notice-error">
+          <strong>Проверка заполнения объектов:</strong>
+          <ul>
+            {coverageIssues.slice(0, 8).map((issue) => (
+              <li key={issue.date}>{coverageIssueToText(issue)}</li>
+            ))}
+          </ul>
+          {coverageIssues.length > 8 && <div>И еще {coverageIssues.length - 8} дн.</div>}
+        </div>
+      )}
 
       {monthData.status !== 'published' && <p>График еще не опубликован</p>}
       {monthData.status === 'published' && visibleEmployees.length === 0 && <p>Сотрудники не найдены.</p>}
 
       {monthData.status === 'published' && visibleEmployees.length > 0 && (
-        <>
-          <ScheduleTable
-            year={2026}
-            month={month}
-            employees={visibleEmployees}
-            objects={appData.objects}
-            readOnly
-            getCellValue={(employeeId, date) => {
-              const entry = dataService.getVisibleEntryForEmployee(monthKey, employeeId, date);
-              if (!entry) return { type: 'SPECIAL', value: 'OFF' } as const;
-              if (entry.kind === 'OBJECT' && entry.object_id) {
-                return { type: 'OBJECT', value: entry.object_id } as const;
-              }
-              return { type: 'SPECIAL', value: entry.special ?? 'OFF' } as const;
-            }}
-          />
-
-          <h2>Выходные по сотрудникам</h2>
-          <ul>
-            {visibleEmployees.map((employee) => (
-              <li key={employee.id}>
-                <strong>{employee.full_name}:</strong>{' '}
-                {offDaysByEmployee[employee.id]?.length ? offDaysByEmployee[employee.id].join(', ') : 'нет'}
-              </li>
-            ))}
-          </ul>
-        </>
+        <ScheduleTable
+          year={2026}
+          month={month}
+          employees={visibleEmployees}
+          objects={appData.objects}
+          readOnly
+          getCellValue={(employeeId, date) => {
+            const entry = dataService.getVisibleEntryForEmployee(monthKey, employeeId, date);
+            if (!entry) return { type: 'SPECIAL', value: 'OFF' } as const;
+            if (entry.kind === 'OBJECT' && entry.object_id) {
+              return { type: 'OBJECT', value: entry.object_id } as const;
+            }
+            return { type: 'SPECIAL', value: entry.special ?? 'OFF' } as const;
+          }}
+        />
       )}
     </section>
   );

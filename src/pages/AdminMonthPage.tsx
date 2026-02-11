@@ -5,6 +5,7 @@ import { dataService } from '../services/dataService';
 import type { SpecialValue } from '../types';
 import { buildDateKey, daysInMonth } from '../utils/date';
 import { exportMonthToXlsx } from '../utils/export';
+import { coverageIssueToText, getCoverageIssues } from '../utils/coverage';
 
 export const AdminMonthPage = (): JSX.Element => {
   const params = useParams<{ month: string }>();
@@ -27,6 +28,18 @@ export const AdminMonthPage = (): JSX.Element => {
     return Array.from({ length: count }, (_, idx) => buildDateKey(2026, month, idx + 1));
   }, [month, tick]);
 
+  const coverageIssues = useMemo(
+    () =>
+      getCoverageIssues({
+        year: 2026,
+        month,
+        employees: activeEmployees,
+        objects,
+        getCellValue: (employeeId, date) => dataService.getCellValue(monthKey, employeeId, date)
+      }),
+    [activeEmployees, month, monthKey, objects, tick]
+  );
+
   const rerender = (message: string): void => {
     setTick((value) => value + 1);
     setNotice(message);
@@ -38,6 +51,17 @@ export const AdminMonthPage = (): JSX.Element => {
       <h1>График {String(month).padStart(2, '0')}.2026</h1>
       <p>Статус: {monthData.status === 'published' ? 'Опубликован' : 'Черновик'}</p>
       {notice && <div className="notice">{notice}</div>}
+      {coverageIssues.length > 0 && (
+        <div className="notice notice-error">
+          <strong>Проверка заполнения объектов:</strong>
+          <ul>
+            {coverageIssues.slice(0, 8).map((issue) => (
+              <li key={issue.date}>{coverageIssueToText(issue)}</li>
+            ))}
+          </ul>
+          {coverageIssues.length > 8 && <div>И еще {coverageIssues.length - 8} дн.</div>}
+        </div>
+      )}
 
       <div className="toolbar-row">
         <input
