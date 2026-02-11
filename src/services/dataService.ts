@@ -14,6 +14,8 @@ const createId = (): string => {
 
 const createToken = (): string => Math.random().toString(36).slice(2, 12);
 
+const FIRESTORE_PUSH_RETRY_MS = 2000;
+
 const defaultData: AppData = {
   admins: [{ id: SUPER_ADMIN_ID, name: 'Епиванов А В', password: 'admin2026', is_super: true }],
   employees: [
@@ -65,8 +67,44 @@ const getFromStorage = (): AppData => {
   }
 };
 
-const setToStorage = (data: AppData): void => {
+const writeToLocalStorage = (data: AppData): void => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+};
+
+let queuedRemoteSnapshot: AppData | null = null;
+let remotePushInFlight = false;
+let remotePushRetryTimer: number | undefined;
+
+const flushRemoteQueue = async (): Promise<void> => {
+  if (remotePushInFlight || !queuedRemoteSnapshot || !isFirebaseConfigured()) return;
+  remotePushInFlight = true;
+  const snapshot = queuedRemoteSnapshot;
+
+  try {
+    await pushAppDataToFirestore(firebaseConfig.projectId, firebaseConfig.apiKey, snapshot);
+    if (queuedRemoteSnapshot === snapshot) queuedRemoteSnapshot = null;
+  } catch {
+    if (remotePushRetryTimer === undefined) {
+      remotePushRetryTimer = globalThis.setTimeout(() => {
+        remotePushRetryTimer = undefined;
+        void flushRemoteQueue();
+      }, FIRESTORE_PUSH_RETRY_MS);
+    }
+  } finally {
+    remotePushInFlight = false;
+    if (queuedRemoteSnapshot) void flushRemoteQueue();
+  }
+};
+
+const syncToRemote = (data: AppData): void => {
+  if (!isFirebaseConfigured()) return;
+  queuedRemoteSnapshot = structuredClone(data);
+  void flushRemoteQueue();
+};
+
+const setToStorage = (data: AppData): void => {
+  writeToLocalStorage(data);
+  syncToRemote(data);
 };
 
 
@@ -80,7 +118,7 @@ const runInitialRemotePull = (): void => {
     .then((remoteData) => {
       if (!remoteData) return;
       const normalized = ensureDataShape(remoteData);
-      setToStorage(normalized);
+      writeToLocalStorage(normalized);
     })
     .catch(() => {
       // fallback to localStorage when Firestore is unreachable or rules deny access
