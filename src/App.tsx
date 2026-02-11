@@ -1,4 +1,3 @@
-import { useMemo, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { AdminMonthPage } from './pages/AdminMonthPage';
@@ -6,6 +5,7 @@ import { EmployeesPage } from './pages/EmployeesPage';
 import { MePage } from './pages/MePage';
 import { ObjectsPage } from './pages/ObjectsPage';
 import { ADMIN_PASSWORD, isAdminSessionUnlocked, setAdminSessionUnlocked } from './utils/adminAuth';
+import { useMemo, useState } from 'react';
 
 const AdminGate = ({ children }: { children: JSX.Element }): JSX.Element => {
   const [password, setPassword] = useState('');
@@ -15,8 +15,8 @@ const AdminGate = ({ children }: { children: JSX.Element }): JSX.Element => {
   const gate = useMemo(
     () => (
       <section>
-        <h1>Доступ администратора</h1>
-        <p>Для редактирования графика введите пароль администратора.</p>
+        <h1>Админка: вход</h1>
+        <p>Редактировать график может только администратор. Введите пароль.</p>
         <div className="toolbar-row">
           <input
             type="password"
@@ -51,8 +51,11 @@ const AdminGate = ({ children }: { children: JSX.Element }): JSX.Element => {
 export const App = (): JSX.Element => {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/admin/2026/01" replace />} />
+      <Route path="/" element={<Navigate to="/viewer" replace />} />
       <Route element={<Layout />}>
+        <Route path="/viewer" element={<MePage />} />
+        <Route path="/me" element={<Navigate to="/viewer" replace />} />
+
         <Route
           path="/admin/2026/:month"
           element={
@@ -77,7 +80,6 @@ export const App = (): JSX.Element => {
             </AdminGate>
           }
         />
-        <Route path="/me" element={<MePage />} />
       </Route>
     </Routes>
   );

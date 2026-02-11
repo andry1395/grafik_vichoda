@@ -7,7 +7,7 @@ export const Layout = (): JSX.Element => {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <Link to="/admin/2026/01" className="logo">
+        <Link to="/viewer" className="logo">
           График объектов 2026
         </Link>
         <button
@@ -22,8 +22,13 @@ export const Layout = (): JSX.Element => {
         </button>
       </header>
       <aside className="sidebar">
-        <h3>Админ</h3>
+        <h3>Сотрудники</h3>
         <nav>
+          <div className="nav-group">
+            <NavLink to="/viewer">Просмотр графиков</NavLink>
+          </div>
+
+          <h3>Админка</h3>
           <div className="nav-group">
             <span>Месяцы</span>
             {MONTHS_2026.map((month) => (
@@ -35,7 +40,6 @@ export const Layout = (): JSX.Element => {
           <div className="nav-group">
             <NavLink to="/admin/employees">Сотрудники</NavLink>
             <NavLink to="/admin/objects">Объекты</NavLink>
-            <NavLink to="/me">Режим сотрудника</NavLink>
           </div>
         </nav>
       </aside>
