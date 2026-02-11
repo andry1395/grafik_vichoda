@@ -15,7 +15,15 @@ const createId = (): string => {
 const createToken = (): string => Math.random().toString(36).slice(2, 12);
 
 const FIRESTORE_PUSH_RETRY_MS = 2000;
-const FIRESTORE_PULL_INTERVAL_MS = 5000;
+const FIRESTORE_PULL_INTERVAL_MS = 2000;
+const PENDING_REMOTE_SYNC_KEY = 'schedulePendingRemoteSnapshot';
+
+export interface SyncState {
+  configured: boolean;
+  pendingPush: boolean;
+  lastPushAt: number | null;
+  lastError: string | null;
+}
 
 const defaultData: AppData = {
   admins: [{ id: SUPER_ADMIN_ID, name: 'Епиванов А В', password: 'admin2026', is_super: true }],
@@ -74,10 +82,25 @@ let lastSnapshotFingerprint = '';
 const computeSnapshotFingerprint = (data: AppData): string => JSON.stringify(data);
 
 const changeListeners = new Set<() => void>();
+let lastPushAt: number | null = null;
+let lastError: string | null = null;
 
 const emitDataChanged = (): void => {
   for (const listener of changeListeners) listener();
 };
+
+const setSyncError = (message: string | null): void => {
+  if (lastError === message) return;
+  lastError = message;
+  emitDataChanged();
+};
+
+const getSyncState = (): SyncState => ({
+  configured: isFirebaseConfigured(),
+  pendingPush: Boolean(queuedRemoteSnapshot || readPendingRemoteSnapshot()),
+  lastPushAt,
+  lastError
+});
 
 const updateLocalSnapshot = (data: AppData): void => {
   writeToLocalStorage(data);
@@ -96,6 +119,27 @@ const getFromStorage = (): AppData => {
   return structuredClone(defaultData);
 };
 
+const readPendingRemoteSnapshot = (): AppData | null => {
+  const raw = localStorage.getItem(PENDING_REMOTE_SYNC_KEY);
+  if (!raw) return null;
+
+  try {
+    await pushAppDataToFirestore(firebaseConfig.projectId, firebaseConfig.apiKey, snapshot);
+    if (queuedRemoteSnapshot === snapshot) queuedRemoteSnapshot = null;
+  } catch {
+    localStorage.removeItem(PENDING_REMOTE_SYNC_KEY);
+    return null;
+  }
+};
+
+const writePendingRemoteSnapshot = (data: AppData): void => {
+  localStorage.setItem(PENDING_REMOTE_SYNC_KEY, JSON.stringify(data));
+};
+
+const clearPendingRemoteSnapshot = (): void => {
+  localStorage.removeItem(PENDING_REMOTE_SYNC_KEY);
+};
+
 let queuedRemoteSnapshot: AppData | null = null;
 let remotePushInFlight = false;
 let remotePushRetryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -109,7 +153,12 @@ const flushRemoteQueue = async (): Promise<void> => {
   try {
     await pushAppDataToFirestore(firebaseConfig.projectId, firebaseConfig.apiKey, snapshot);
     if (queuedRemoteSnapshot === snapshot) queuedRemoteSnapshot = null;
-  } catch {
+    if (!queuedRemoteSnapshot) clearPendingRemoteSnapshot();
+    lastPushAt = Date.now();
+    setSyncError(null);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ошибка отправки в Firestore';
+    setSyncError(message);
     if (remotePushRetryTimer === undefined) {
       remotePushRetryTimer = globalThis.setTimeout(() => {
         remotePushRetryTimer = undefined;
@@ -123,8 +172,14 @@ const flushRemoteQueue = async (): Promise<void> => {
 };
 
 const syncToRemote = (data: AppData): void => {
-  if (!isFirebaseConfigured()) return;
+  if (!isFirebaseConfigured()) {
+    setSyncError('Firebase не настроен: изменения остаются только локально');
+    return;
+  }
   queuedRemoteSnapshot = structuredClone(data);
+  writePendingRemoteSnapshot(queuedRemoteSnapshot);
+  setSyncError(null);
+  emitDataChanged();
   void flushRemoteQueue();
 };
 
@@ -336,7 +391,10 @@ const getCellValue = (
 
 
 const pullFromFirestore = async (): Promise<boolean> => {
-  if (!isFirebaseConfigured()) return false;
+  if (!isFirebaseConfigured()) {
+    setSyncError('Firebase не настроен: чтение только из localStorage');
+    return false;
+  }
   const remoteData = await pullAppDataFromFirestore(firebaseConfig.projectId, firebaseConfig.apiKey);
   if (!remoteData) return false;
 
@@ -345,23 +403,53 @@ const pullFromFirestore = async (): Promise<boolean> => {
   if (nextFingerprint === lastSnapshotFingerprint) return false;
 
   updateLocalSnapshot(normalized);
+  setSyncError(null);
   emitDataChanged();
   return true;
 };
 
 let realtimeSyncTimer: ReturnType<typeof setInterval> | undefined;
+let realtimeSyncEventHandler: (() => void) | undefined;
+
+const runRealtimePull = (): void => {
+  void pullFromFirestore().catch((error) => {
+    const message = error instanceof Error ? error.message : 'Ошибка чтения Firestore';
+    setSyncError(message);
+  });
+};
 
 const startRealtimeSync = (): void => {
   if (realtimeSyncTimer || !isFirebaseConfigured()) return;
 
+  const pending = readPendingRemoteSnapshot();
+  if (pending) {
+    queuedRemoteSnapshot = pending;
+    void flushRemoteQueue();
+  }
+
+  realtimeSyncEventHandler = (): void => {
+    runRealtimePull();
+    if (queuedRemoteSnapshot) void flushRemoteQueue();
+  };
+
+  globalThis.addEventListener('focus', realtimeSyncEventHandler);
+  document.addEventListener('visibilitychange', realtimeSyncEventHandler);
+
   realtimeSyncTimer = globalThis.setInterval(() => {
-    void pullFromFirestore().catch(() => {
-      // keep local data when remote pull fails
-    });
+    runRealtimePull();
+    if (queuedRemoteSnapshot) void flushRemoteQueue();
   }, FIRESTORE_PULL_INTERVAL_MS);
+
+  runRealtimePull();
 };
 
 const stopRealtimeSync = (): void => {
+  if (realtimeSyncEventHandler) {
+    globalThis.removeEventListener('focus', realtimeSyncEventHandler);
+    document.removeEventListener('visibilitychange', realtimeSyncEventHandler);
+    realtimeSyncEventHandler = undefined;
+  }
+
   if (!realtimeSyncTimer) return;
   globalThis.clearInterval(realtimeSyncTimer);
   realtimeSyncTimer = undefined;
@@ -406,5 +494,6 @@ export const dataService = {
   pushToFirestore,
   startRealtimeSync,
   stopRealtimeSync,
-  subscribeToChanges
+  subscribeToChanges,
+  getSyncState
 };
