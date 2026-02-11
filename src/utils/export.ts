@@ -10,7 +10,7 @@ interface ExportParams {
   getCellValue: (employeeId: string, date: string) => { type: 'OBJECT'; value: string } | { type: 'SPECIAL'; value: SpecialValue };
 }
 
-const escapeCell = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+const escapeCell = (value: string): string => `"${value.split("\"").join("\"\"")}"`;
 
 const monthName = (month: number): string => String(month).padStart(2, '0');
 
