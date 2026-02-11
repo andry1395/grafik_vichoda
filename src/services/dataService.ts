@@ -52,18 +52,14 @@ const ensureDataShape = (input: unknown): AppData => {
   };
 };
 
-const getFromStorage = (): AppData => {
-  runInitialRemotePull();
+const readLocalSnapshot = (): AppData | null => {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData));
-    return structuredClone(defaultData);
-  }
+  if (!raw) return null;
+
   try {
     return ensureDataShape(JSON.parse(raw));
   } catch {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData));
-    return structuredClone(defaultData);
+    return null;
   }
 };
 
@@ -71,9 +67,19 @@ const writeToLocalStorage = (data: AppData): void => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 };
 
+const getFromStorage = (): AppData => {
+  runInitialRemotePull();
+  const snapshot = readLocalSnapshot();
+  if (snapshot) return snapshot;
+
+  writeToLocalStorage(defaultData);
+  return structuredClone(defaultData);
+};
+
 let queuedRemoteSnapshot: AppData | null = null;
 let remotePushInFlight = false;
-let remotePushRetryTimer: number | undefined;
+let remotePushRetryTimer: ReturnType<typeof setTimeout> | undefined;
+let localMutationVersion = 0;
 
 const flushRemoteQueue = async (): Promise<void> => {
   if (remotePushInFlight || !queuedRemoteSnapshot || !isFirebaseConfigured()) return;
@@ -104,6 +110,7 @@ const syncToRemote = (data: AppData): void => {
 
 const setToStorage = (data: AppData): void => {
   writeToLocalStorage(data);
+  localMutationVersion += 1;
   syncToRemote(data);
 };
 
@@ -114,11 +121,24 @@ const runInitialRemotePull = (): void => {
   if (remoteSyncStarted || !isFirebaseConfigured()) return;
   remoteSyncStarted = true;
 
+  const initialLocalData = readLocalSnapshot();
+  const mutationVersionAtStart = localMutationVersion;
+
   pullAppDataFromFirestore(firebaseConfig.projectId, firebaseConfig.apiKey)
     .then((remoteData) => {
-      if (!remoteData) return;
-      const normalized = ensureDataShape(remoteData);
-      writeToLocalStorage(normalized);
+      if (localMutationVersion !== mutationVersionAtStart) return;
+
+      if (remoteData) {
+        if (!initialLocalData) {
+          const normalized = ensureDataShape(remoteData);
+          writeToLocalStorage(normalized);
+        }
+        return;
+      }
+
+      if (!initialLocalData) {
+        syncToRemote(defaultData);
+      }
     })
     .catch(() => {
       // fallback to localStorage when Firestore is unreachable or rules deny access

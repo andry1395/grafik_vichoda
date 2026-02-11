@@ -84,7 +84,7 @@ src/
    - Firestore Database
    - Authentication → Email/Password
 4. В проект добавлен модуль `src/services/firebase.ts` с `firebaseConfig` и проверкой `isFirebaseConfigured()`.
-5. На следующем этапе подключаем Firebase SDK (`firebase`) и переводим методы `dataService` на Firestore.
+5. После настройки переменных приложение автоматически работает в режиме Firestore-first (с локальным fallback).
 
 Сейчас включен режим **Firestore-first с локальным fallback**:
 - каждое изменение данных записывается в `localStorage` и автоматически отправляется в Firestore (`appData/main`);
