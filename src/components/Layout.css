@@ -1,9 +1,8 @@
 .app-shell {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  grid-template-rows: 56px 1fr;
+  grid-template-columns: 270px 1fr;
+  grid-template-rows: 68px 1fr;
   min-height: 100vh;
-  font-family: Arial, sans-serif;
 }
 
 .topbar {
@@ -11,69 +10,97 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #1f2937;
+  background: linear-gradient(135deg, #0f1f45 0%, #172d60 55%, #1d3a7c 100%);
   color: #fff;
-  padding: 0 16px;
-  min-height: 56px;
+  padding: 10px 16px;
+  min-height: 68px;
   position: sticky;
   top: 0;
   z-index: 30;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
 }
 
 .logo {
   color: inherit;
   text-decoration: none;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.2px;
   white-space: nowrap;
 }
 
 .menu-toggle {
-  background: #111827;
+  background: rgba(15, 23, 42, 0.55);
   color: #fff;
-  border: 1px solid #4b5563;
-  border-radius: 4px;
-  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 10px;
+  padding: 7px 11px;
 }
 
 .sidebar {
-  background: #f5f5f5;
+  background: linear-gradient(180deg, #f9fbff 0%, #f2f6ff 100%);
   padding: 16px;
-  border-right: 1px solid #ddd;
+  border-right: 1px solid #d6e0f0;
+}
+
+.sidebar h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #1e3a8a;
 }
 
 .nav-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 16px;
+  gap: 7px;
+  margin-bottom: 18px;
 }
 
 .nav-group span {
-  font-size: 13px;
-  color: #4b5563;
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
 .sidebar a {
   text-decoration: none;
-  color: #111827;
-  padding: 4px 6px;
-  border-radius: 4px;
+  color: #1f2937;
+  padding: 8px 9px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.sidebar a:hover {
+  background: #eff4ff;
+  border-color: #c3d4f3;
 }
 
 .sidebar a.active {
-  background: #dbeafe;
+  background: #dfeaff;
+  color: #11306f;
+  border-color: #b7cbf0;
+  font-weight: 600;
 }
 
 .content {
-  padding: 16px;
+  padding: 20px;
   overflow: auto;
 }
 
 .logout-btn {
   margin-left: auto;
-  background: #111827;
+  background: rgba(15, 23, 42, 0.45);
   color: #fff;
-  border-color: #374151;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.logout-btn:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 18px rgba(16, 185, 129, 0.14);
 }
 
 .admin-tabs {
@@ -83,15 +110,16 @@
 }
 
 .admin-tab {
-  background: #374151;
+  background: rgba(51, 65, 85, 0.42);
   color: #fff;
-  border: 1px solid #4b5563;
-  border-radius: 4px;
-  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 9px;
+  padding: 5px 10px;
 }
 
 .admin-tab.active {
-  background: #2563eb;
+  background: #3b82f6;
+  border-color: #93c5fd;
 }
 
 .sidebar-backdrop {
@@ -109,13 +137,15 @@
 @media (max-width: 1200px) {
   .topbar {
     flex-wrap: wrap;
-    padding-top: 8px;
-    padding-bottom: 8px;
     min-height: auto;
   }
 
   .logout-btn {
     margin-left: 0;
+  }
+
+  .content {
+    padding: 14px;
   }
 }
 
@@ -128,13 +158,14 @@
 
   .sidebar {
     position: fixed;
-    top: 56px;
+    top: 68px;
     left: 0;
     width: min(84vw, 320px);
-    height: calc(100vh - 56px);
+    height: calc(100vh - 68px);
     z-index: 20;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 16px 38px rgba(15, 23, 42, 0.25);
     overflow-y: auto;
+    transition: transform 0.22s ease;
   }
 
   .app-shell.sidebar-hidden .sidebar {
@@ -150,12 +181,12 @@
   .sidebar-backdrop {
     display: block;
     position: fixed;
-    top: 56px;
+    top: 68px;
     right: 0;
     bottom: 0;
     left: 0;
     border: 0;
-    background: rgba(17, 24, 39, 0.4);
+    background: rgba(15, 23, 42, 0.42);
     z-index: 10;
     padding: 0;
     margin: 0;
@@ -163,10 +194,6 @@
 
   .app-shell.sidebar-hidden .sidebar-backdrop {
     display: none;
-  }
-
-  .content {
-    padding: 12px;
   }
 
   .logo {
