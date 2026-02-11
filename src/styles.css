@@ -37,6 +37,12 @@ h2,
 h3 {
   margin-top: 0;
   color: #0b1f44;
+  overflow-wrap: anywhere;
+}
+
+h1 {
+  font-size: clamp(28px, 5vw, 72px);
+  line-height: 1.08;
 }
 
 section {
@@ -45,6 +51,8 @@ section {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   padding: 20px;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 p {
@@ -108,7 +116,8 @@ button:active {
   color: var(--ok-text);
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  max-width: 760px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .notice ul {
@@ -214,6 +223,10 @@ button:active {
     padding: 14px;
   }
 
+  h1 {
+    font-size: clamp(24px, 10vw, 56px);
+  }
+
   .toolbar-row {
     gap: 8px;
   }
@@ -230,5 +243,10 @@ button:active {
 
   .sticky-col {
     min-width: 130px;
+  }
+
+  .notice ul,
+  .notice li {
+    overflow-wrap: anywhere;
   }
 }

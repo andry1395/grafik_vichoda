@@ -1,7 +1,7 @@
 .app-shell {
   display: grid;
-  grid-template-columns: 270px 1fr;
-  grid-template-rows: 68px 1fr;
+  grid-template-columns: 270px minmax(0, 1fr);
+  grid-template-rows: 68px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -12,7 +12,7 @@
   gap: 10px;
   background: linear-gradient(135deg, #0f1f45 0%, #172d60 55%, #1d3a7c 100%);
   color: #fff;
-  padding: 10px 16px;
+  padding: 10px 14px;
   min-height: 68px;
   position: sticky;
   top: 0;
@@ -43,12 +43,44 @@
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 10px;
   padding: 7px 11px;
+  white-space: nowrap;
+}
+
+.admin-select {
+  min-width: 180px;
+  max-width: 34vw;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.admin-select option {
+  color: #0f172a;
+}
+
+.logout-btn {
+  background: rgba(15, 23, 42, 0.45);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  white-space: nowrap;
+}
+
+.logout-btn:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 18px rgba(16, 185, 129, 0.14);
+}
+
+.topbar .menu-toggle,
+.topbar .admin-select,
+.topbar .logout-btn {
+  width: auto;
 }
 
 .sidebar {
   background: linear-gradient(180deg, #f9fbff 0%, #f2f6ff 100%);
   padding: 16px;
   border-right: 1px solid #d6e0f0;
+  min-width: 0;
 }
 
 .sidebar h3 {
@@ -97,39 +129,7 @@
 .content {
   padding: 20px;
   overflow: auto;
-}
-
-.logout-btn {
-  background: rgba(15, 23, 42, 0.45);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.logout-btn:hover {
-  border-color: rgba(255, 255, 255, 0.6);
-  box-shadow: 0 8px 18px rgba(16, 185, 129, 0.14);
-}
-
-.admin-tabs {
-  display: flex;
-  gap: 6px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  max-width: 48vw;
-  padding-bottom: 2px;
-}
-
-.admin-tab {
-  background: rgba(51, 65, 85, 0.42);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 9px;
-  padding: 5px 10px;
-}
-
-.admin-tab.active {
-  background: #3b82f6;
-  border-color: #93c5fd;
+  min-width: 0;
 }
 
 .sidebar-backdrop {
@@ -137,43 +137,65 @@
 }
 
 .app-shell.sidebar-hidden {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .app-shell.sidebar-hidden .sidebar {
   display: none;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
 @media (max-width: 1200px) {
-  .topbar {
-    flex-wrap: nowrap;
-    min-height: auto;
-  }
-
-  .admin-tabs {
-    max-width: 42vw;
-  }
-
   .content {
     padding: 14px;
+  }
+
+  .admin-select {
+    max-width: 30vw;
   }
 }
 
 @media (max-width: 900px) {
-  .topbar-actions {
-    flex: 1 1 auto;
-    justify-content: flex-end;
-    min-width: 0;
-  }
-
-  .admin-tabs {
-    max-width: 38vw;
-  }
-
   .app-shell,
   .app-shell.sidebar-hidden {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
+  }
+
+  .logo {
+    display: none;
+  }
+
+  .topbar {
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .topbar-actions {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
+
+  .admin-select {
+    min-width: 130px;
+    max-width: 36vw;
+    font-size: 13px;
+    padding: 6px 8px;
+  }
+
+  .logout-btn {
+    font-size: 13px;
+    padding: 6px 8px;
   }
 
   .sidebar {
@@ -214,56 +236,5 @@
 
   .app-shell.sidebar-hidden .sidebar-backdrop {
     display: none;
-  }
-
-  .logo {
-    white-space: nowrap;
-  }
-}
-
-@media (max-width: 640px) {
-  .topbar {
-    gap: 6px;
-    padding: 8px 10px;
-  }
-
-  .menu-toggle {
-    width: auto;
-    flex: 0 0 auto;
-    padding: 6px 8px;
-    font-size: 13px;
-  }
-
-  .logo {
-    font-size: 22px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 42vw;
-  }
-
-  .topbar-actions {
-    gap: 6px;
-    margin-left: 0;
-    flex: 1 1 auto;
-    justify-content: flex-end;
-    min-width: 0;
-  }
-
-  .admin-tabs {
-    max-width: 44vw;
-    scrollbar-width: thin;
-  }
-
-  .admin-tab,
-  .logout-btn {
-    min-height: 34px;
-    padding: 4px 8px;
-    font-size: 13px;
-    white-space: nowrap;
-  }
-
-  .logout-btn {
-    flex: 0 0 auto;
   }
 }

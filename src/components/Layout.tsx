@@ -10,7 +10,6 @@ export const Layout = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-
   useEffect(() => {
     if (window.matchMedia('(max-width: 900px)').matches) {
       setSidebarOpen(false);
@@ -41,22 +40,25 @@ export const Layout = (): JSX.Element => {
         </Link>
 
         <div className="topbar-actions">
-          <div className="admin-tabs" aria-label="Переключение администраторов">
+          <label className="sr-only" htmlFor="admin-select">
+            Выбор администратора
+          </label>
+          <select
+            id="admin-select"
+            className="admin-select"
+            value={selectedAdminId}
+            onChange={(event) => {
+              setSelectedAdminId(event.target.value);
+              clearAdminSession();
+              window.location.reload();
+            }}
+          >
             {admins.map((admin) => (
-              <button
-                key={admin.id}
-                type="button"
-                className={selectedAdminId === admin.id ? 'admin-tab active' : 'admin-tab'}
-                onClick={() => {
-                  setSelectedAdminId(admin.id);
-                  clearAdminSession();
-                  window.location.reload();
-                }}
-              >
+              <option key={admin.id} value={admin.id}>
                 {admin.name}
-              </button>
+              </option>
             ))}
-          </div>
+          </select>
 
           <button
             type="button"
@@ -66,7 +68,7 @@ export const Layout = (): JSX.Element => {
               window.location.hash = '#/admin/2026/01';
             }}
           >
-            Выйти из администрирования
+            Выйти
           </button>
         </div>
       </header>
