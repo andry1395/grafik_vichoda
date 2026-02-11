@@ -1,0 +1,45 @@
+import type { Employee, SpecialValue, WorkObject } from '../types';
+import { buildDateKey, daysInMonth, formatDateRu } from './date';
+
+interface CoverageParams {
+  year: number;
+  month: number;
+  employees: Employee[];
+  objects: WorkObject[];
+  getCellValue: (employeeId: string, date: string) => { type: 'OBJECT'; value: string } | { type: 'SPECIAL'; value: SpecialValue };
+}
+
+export interface CoverageIssue {
+  date: string;
+  missingObjects: WorkObject[];
+}
+
+export const getCoverageIssues = ({ year, month, employees, objects, getCellValue }: CoverageParams): CoverageIssue[] => {
+  const activeObjects = objects.filter((item) => item.active);
+  const issues: CoverageIssue[] = [];
+  const totalDays = daysInMonth(year, month);
+
+  for (let day = 1; day <= totalDays; day += 1) {
+    const date = buildDateKey(year, month, day);
+    const assigned = new Set<string>();
+
+    for (const employee of employees) {
+      const cell = getCellValue(employee.id, date);
+      if (cell.type === 'OBJECT') {
+        assigned.add(cell.value);
+      }
+    }
+
+    const missingObjects = activeObjects.filter((objectItem) => !assigned.has(objectItem.id));
+    if (missingObjects.length > 0) {
+      issues.push({ date, missingObjects });
+    }
+  }
+
+  return issues;
+};
+
+export const coverageIssueToText = (issue: CoverageIssue): string => {
+  const missing = issue.missingObjects.map((item) => item.short_ru || item.name_ru).join(', ');
+  return `${formatDateRu(issue.date)}: нет назначений на объекты [${missing}]`;
+};

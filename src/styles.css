@@ -1,0 +1,252 @@
+:root {
+  color-scheme: light;
+  --bg: #f3f6fb;
+  --panel: #ffffff;
+  --panel-soft: #f8fafc;
+  --text: #0f172a;
+  --muted: #475569;
+  --border: #dbe3ef;
+  --border-strong: #c3d3e8;
+  --primary: #2563eb;
+  --primary-strong: #1d4ed8;
+  --primary-soft: #e8f0ff;
+  --danger-soft: #fee2e2;
+  --danger-text: #991b1b;
+  --ok-soft: #dcfce7;
+  --ok-text: #166534;
+  --shadow-sm: 0 6px 18px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 14px 32px rgba(15, 23, 42, 0.08);
+  --radius-sm: 10px;
+  --radius-md: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top right, #eef4ff 0%, var(--bg) 48%, #f6f8fc 100%);
+  color: var(--text);
+  font-family: Inter, 'Segoe UI', Roboto, Arial, sans-serif;
+  line-height: 1.45;
+}
+
+h1,
+h2,
+h3 {
+  margin-top: 0;
+  color: #0b1f44;
+  overflow-wrap: anywhere;
+}
+
+h1 {
+  font-size: clamp(28px, 5vw, 72px);
+  line-height: 1.08;
+}
+
+section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+p {
+  color: var(--muted);
+}
+
+.toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+  align-items: center;
+}
+
+input,
+select,
+button {
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  min-height: 38px;
+  font-size: 14px;
+}
+
+input,
+select {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+input:focus,
+select:focus,
+button:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+button {
+  cursor: pointer;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  color: #0f172a;
+  font-weight: 600;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  border-color: #aac2e6;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.12);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+.notice {
+  margin-bottom: 12px;
+  background: var(--ok-soft);
+  border: 1px solid #86efac;
+  color: var(--ok-text);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.notice ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel-soft);
+}
+
+.schedule-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 1100px;
+  width: 100%;
+}
+
+.schedule-table th,
+.schedule-table td {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 6px;
+  text-align: center;
+  min-width: 78px;
+  background: #fff;
+}
+
+.schedule-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f6f9ff;
+  color: #1e3a8a;
+}
+
+.schedule-table th.weekend {
+  background: #fff1f2;
+}
+
+.weekday {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.sticky-col {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 3;
+  min-width: 180px;
+  text-align: left !important;
+  font-weight: 600;
+}
+
+.selected {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  background: var(--primary-soft) !important;
+}
+
+.schedule-table td select {
+  width: 100%;
+  min-width: 120px;
+  padding: 5px 6px;
+  border-radius: 8px;
+}
+
+.simple-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  max-width: 980px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.simple-table th,
+.simple-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px;
+  text-align: left;
+}
+
+.simple-table th {
+  background: #f6f9ff;
+  color: #1e3a8a;
+}
+
+.notice-error {
+  background: var(--danger-soft);
+  border-color: #fca5a5;
+  color: var(--danger-text);
+}
+
+@media (max-width: 900px) {
+  section {
+    padding: 14px;
+  }
+
+  h1 {
+    font-size: clamp(24px, 10vw, 56px);
+  }
+
+  .toolbar-row {
+    gap: 8px;
+  }
+
+  input,
+  select,
+  button {
+    width: 100%;
+  }
+
+  .simple-table {
+    font-size: 14px;
+  }
+
+  .sticky-col {
+    min-width: 130px;
+  }
+
+  .notice ul,
+  .notice li {
+    overflow-wrap: anywhere;
+  }
+}
