@@ -10,15 +10,29 @@
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
+  gap: 10px;
   background: #1f2937;
   color: #fff;
   padding: 0 16px;
+  min-height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
 }
 
 .logo {
   color: inherit;
   text-decoration: none;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.menu-toggle {
+  background: #111827;
+  color: #fff;
+  border: 1px solid #4b5563;
+  border-radius: 4px;
+  padding: 6px 10px;
 }
 
 .sidebar {
@@ -65,7 +79,7 @@
 .admin-tabs {
   display: flex;
   gap: 6px;
-  margin-left: 16px;
+  flex-wrap: wrap;
 }
 
 .admin-tab {
@@ -78,4 +92,106 @@
 
 .admin-tab.active {
   background: #2563eb;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+.app-shell.sidebar-hidden {
+  grid-template-columns: 1fr;
+}
+
+.app-shell.sidebar-hidden .sidebar {
+  display: none;
+}
+
+@media (max-width: 1200px) {
+  .topbar {
+    flex-wrap: wrap;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    min-height: auto;
+  }
+
+  .logout-btn {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-shell,
+  .app-shell.sidebar-hidden {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    width: min(84vw, 320px);
+    height: calc(100vh - 56px);
+    z-index: 20;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    overflow-y: auto;
+  }
+
+  .app-shell.sidebar-hidden .sidebar {
+    display: block;
+    transform: translateX(-110%);
+    pointer-events: none;
+  }
+
+  .app-shell.sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    top: 56px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border: 0;
+    background: rgba(17, 24, 39, 0.4);
+    z-index: 10;
+    padding: 0;
+    margin: 0;
+  }
+
+  .app-shell.sidebar-hidden .sidebar-backdrop {
+    display: none;
+  }
+
+  .content {
+    padding: 12px;
+  }
+
+  .logo {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-tabs {
+    width: 100%;
+    order: 3;
+  }
+
+  .logout-btn {
+    width: 100%;
+    order: 4;
+  }
+
+  .menu-toggle {
+    width: 100%;
+    order: 1;
+  }
+
+  .logo {
+    width: 100%;
+    order: 2;
+  }
 }
