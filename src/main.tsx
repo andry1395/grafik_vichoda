@@ -24,6 +24,7 @@ const bootstrap = async (): Promise<void> => {
     // fallback to localStorage when Firestore is unreachable or rules deny access
   }
 
+  dataService.startRealtimeSync();
   renderApp();
 };
 
