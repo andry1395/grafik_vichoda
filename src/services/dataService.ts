@@ -108,6 +108,36 @@ const upsertObject = (payload: Omit<WorkObject, 'id'> & { id?: string }): WorkOb
   return objectItem;
 };
 
+const removeEmployee = (employeeId: string): void => {
+  const data = getFromStorage();
+  data.employees = data.employees.filter((employee) => employee.id !== employeeId);
+
+  for (const month of Object.values(data.months)) {
+    for (const entryKey of Object.keys(month.entries)) {
+      if (entryKey.startsWith(`${employeeId}_`)) {
+        delete month.entries[entryKey];
+      }
+    }
+  }
+
+  setToStorage(data);
+};
+
+const removeObject = (objectId: string): void => {
+  const data = getFromStorage();
+  data.objects = data.objects.filter((objectItem) => objectItem.id !== objectId);
+
+  for (const month of Object.values(data.months)) {
+    for (const [entryKey, entry] of Object.entries(month.entries)) {
+      if (entry.kind === 'OBJECT' && entry.object_id === objectId) {
+        delete month.entries[entryKey];
+      }
+    }
+  }
+
+  setToStorage(data);
+};
+
 const setEntry = (monthKey: string, employeeId: string, date: string, entry: ScheduleEntry): void => {
   const data = getFromStorage();
   if (!data.months[monthKey]) {
@@ -185,6 +215,8 @@ export const dataService = {
   getMonth,
   upsertEmployee,
   upsertObject,
+  removeEmployee,
+  removeObject,
   setEntry,
   clearEntry,
   setMonthStatus,

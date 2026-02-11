@@ -5,6 +5,8 @@ export const EmployeesPage = (): JSX.Element => {
   const [tick, setTick] = useState(0);
   const [fullName, setFullName] = useState('');
   const [notice, setNotice] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
 
   const employees = dataService.getAppData().employees;
 
@@ -37,30 +39,100 @@ export const EmployeesPage = (): JSX.Element => {
           </tr>
         </thead>
         <tbody>
-          {employees.map((employee) => (
-            <tr key={employee.id}>
-              <td>{employee.full_name}</td>
-              <td>{employee.token}</td>
-              <td>{employee.active ? 'Активен' : 'Неактивен'}</td>
-              <td>
-                <button
-                  type="button"
-                  onClick={() => {
-                    dataService.upsertEmployee({
-                      id: employee.id,
-                      full_name: employee.full_name,
-                      active: !employee.active,
-                      token: employee.token
-                    });
-                    setTick((value) => value + 1);
-                    setNotice('Сохранено');
-                  }}
-                >
-                  {employee.active ? 'Деактивировать' : 'Активировать'}
-                </button>
-              </td>
-            </tr>
-          ))}
+          {employees.map((employee) => {
+            const isEditing = editingId === employee.id;
+            return (
+              <tr key={employee.id}>
+                <td>
+                  {isEditing ? (
+                    <input value={editingName} onChange={(event) => setEditingName(event.target.value)} />
+                  ) : (
+                    employee.full_name
+                  )}
+                </td>
+                <td>{employee.token}</td>
+                <td>{employee.active ? 'Активен' : 'Неактивен'}</td>
+                <td>
+                  <div className="toolbar-row">
+                    {isEditing ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!editingName.trim()) return;
+                            dataService.upsertEmployee({
+                              id: employee.id,
+                              full_name: editingName.trim(),
+                              active: employee.active,
+                              token: employee.token
+                            });
+                            setEditingId(null);
+                            setTick((value) => value + 1);
+                            setNotice('Сохранено');
+                          }}
+                        >
+                          Сохранить
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingId(null);
+                            setEditingName('');
+                          }}
+                        >
+                          Отмена
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(employee.id);
+                          setEditingName(employee.full_name);
+                        }}
+                      >
+                        Редактировать
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        dataService.upsertEmployee({
+                          id: employee.id,
+                          full_name: employee.full_name,
+                          active: !employee.active,
+                          token: employee.token
+                        });
+                        if (editingId === employee.id) {
+                          setEditingId(null);
+                        }
+                        setTick((value) => value + 1);
+                        setNotice('Сохранено');
+                      }}
+                    >
+                      {employee.active ? 'Деактивировать' : 'Активировать'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!window.confirm(`Удалить сотрудника ${employee.full_name}?`)) return;
+                        dataService.removeEmployee(employee.id);
+                        if (editingId === employee.id) {
+                          setEditingId(null);
+                        }
+                        setTick((value) => value + 1);
+                        setNotice('Сотрудник удален');
+                      }}
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </section>
