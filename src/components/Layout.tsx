@@ -40,33 +40,35 @@ export const Layout = (): JSX.Element => {
           График объектов 2026
         </Link>
 
-        <div className="admin-tabs">
-          {admins.map((admin) => (
-            <button
-              key={admin.id}
-              type="button"
-              className={selectedAdminId === admin.id ? 'admin-tab active' : 'admin-tab'}
-              onClick={() => {
-                setSelectedAdminId(admin.id);
-                clearAdminSession();
-                window.location.reload();
-              }}
-            >
-              {admin.name}
-            </button>
-          ))}
-        </div>
+        <div className="topbar-actions">
+          <div className="admin-tabs" aria-label="Переключение администраторов">
+            {admins.map((admin) => (
+              <button
+                key={admin.id}
+                type="button"
+                className={selectedAdminId === admin.id ? 'admin-tab active' : 'admin-tab'}
+                onClick={() => {
+                  setSelectedAdminId(admin.id);
+                  clearAdminSession();
+                  window.location.reload();
+                }}
+              >
+                {admin.name}
+              </button>
+            ))}
+          </div>
 
-        <button
-          type="button"
-          className="logout-btn"
-          onClick={() => {
-            clearAdminSession();
-            window.location.hash = '#/admin/2026/01';
-          }}
-        >
-          Выйти из администрирования
-        </button>
+          <button
+            type="button"
+            className="logout-btn"
+            onClick={() => {
+              clearAdminSession();
+              window.location.hash = '#/admin/2026/01';
+            }}
+          >
+            Выйти из администрирования
+          </button>
+        </div>
       </header>
 
       {sidebarOpen && <button type="button" className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-label="Закрыть меню" />}

@@ -29,6 +29,14 @@
   white-space: nowrap;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
+}
+
 .menu-toggle {
   background: rgba(15, 23, 42, 0.55);
   color: #fff;
@@ -92,7 +100,6 @@
 }
 
 .logout-btn {
-  margin-left: auto;
   background: rgba(15, 23, 42, 0.45);
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -106,7 +113,10 @@
 .admin-tabs {
   display: flex;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  max-width: 48vw;
+  padding-bottom: 2px;
 }
 
 .admin-tab {
@@ -136,12 +146,12 @@
 
 @media (max-width: 1200px) {
   .topbar {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     min-height: auto;
   }
 
-  .logout-btn {
-    margin-left: 0;
+  .admin-tabs {
+    max-width: 42vw;
   }
 
   .content {
@@ -150,6 +160,16 @@
 }
 
 @media (max-width: 900px) {
+  .topbar-actions {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .admin-tabs {
+    max-width: 38vw;
+  }
+
   .app-shell,
   .app-shell.sidebar-hidden {
     grid-template-columns: 1fr;
@@ -197,28 +217,53 @@
   }
 
   .logo {
-    white-space: normal;
+    white-space: nowrap;
   }
 }
 
 @media (max-width: 640px) {
-  .admin-tabs {
-    width: 100%;
-    order: 3;
-  }
-
-  .logout-btn {
-    width: 100%;
-    order: 4;
+  .topbar {
+    gap: 6px;
+    padding: 8px 10px;
   }
 
   .menu-toggle {
-    width: 100%;
-    order: 1;
+    width: auto;
+    flex: 0 0 auto;
+    padding: 6px 8px;
+    font-size: 13px;
   }
 
   .logo {
-    width: 100%;
-    order: 2;
+    font-size: 22px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 42vw;
+  }
+
+  .topbar-actions {
+    gap: 6px;
+    margin-left: 0;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .admin-tabs {
+    max-width: 44vw;
+    scrollbar-width: thin;
+  }
+
+  .admin-tab,
+  .logout-btn {
+    min-height: 34px;
+    padding: 4px 8px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .logout-btn {
+    flex: 0 0 auto;
   }
 }
