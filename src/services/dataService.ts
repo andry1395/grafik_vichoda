@@ -13,7 +13,7 @@ const createId = (): string => {
 const createToken = (): string => Math.random().toString(36).slice(2, 12);
 
 const defaultData: AppData = {
-  admins: [{ id: SUPER_ADMIN_ID, name: 'Главный админ', password: 'admin2026', is_super: true }],
+  admins: [{ id: SUPER_ADMIN_ID, name: 'Епиванов А В', password: 'admin2026', is_super: true }],
   employees: [
     { id: createId(), admin_id: SUPER_ADMIN_ID, full_name: 'Иванов Иван', active: true, token: createToken() },
     { id: createId(), admin_id: SUPER_ADMIN_ID, full_name: 'Петров Петр', active: true, token: createToken() }
@@ -34,9 +34,12 @@ const ensureDataShape = (input: unknown): AppData => {
   const maybe = input as AppData;
   if (!maybe || typeof maybe !== 'object') return structuredClone(defaultData);
   const admins = Array.isArray(maybe.admins) && maybe.admins.length > 0 ? maybe.admins : structuredClone(defaultData.admins);
+  const normalizedAdmins = admins.map((admin) =>
+    admin.id === SUPER_ADMIN_ID ? { ...admin, name: 'Епиванов А В', is_super: true } : admin
+  );
 
   return {
-    admins,
+    admins: normalizedAdmins,
     employees: Array.isArray(maybe.employees)
       ? maybe.employees.map((employee) => ({ ...employee, admin_id: employee.admin_id ?? SUPER_ADMIN_ID }))
       : [],

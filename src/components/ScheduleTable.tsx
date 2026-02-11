@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Employee, SpecialValue, WorkObject } from '../types';
 import { SPECIAL_LABELS, SPECIAL_OPTIONS, WEEKDAY_SHORT } from '../utils/constants';
 import { buildDateKey, getWeekdayIndexMondayFirst } from '../utils/date';
@@ -9,6 +9,7 @@ interface ScheduleTableProps {
   employees: Employee[];
   objects: WorkObject[];
   readOnly?: boolean;
+  focusDay?: number | null;
   getCellValue: (employeeId: string, date: string) => { type: 'OBJECT'; value: string } | { type: 'SPECIAL'; value: SpecialValue };
   setCellValue?: (employeeId: string, date: string, value: { type: 'OBJECT'; value: string } | { type: 'SPECIAL'; value: SpecialValue }) => void;
   clearCellValue?: (employeeId: string, date: string) => void;
@@ -20,6 +21,7 @@ export const ScheduleTable = ({
   employees,
   objects,
   readOnly = false,
+  focusDay = null,
   getCellValue,
   setCellValue,
   clearCellValue
@@ -33,6 +35,12 @@ export const ScheduleTable = ({
   const [selectionStart, setSelectionStart] = useState<{ row: number; col: number } | null>(null);
   const [selectionEnd, setSelectionEnd] = useState<{ row: number; col: number } | null>(null);
   const [massValue, setMassValue] = useState<string>('SPECIAL:OFF');
+
+  useEffect(() => {
+    if (!focusDay || Number.isNaN(focusDay)) return;
+    const header = document.querySelector<HTMLElement>(`th[data-day='${focusDay}']`);
+    header?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [focusDay]);
 
   const selectionBounds = useMemo(() => {
     if (!selectionStart || !selectionEnd) return null;
@@ -114,8 +122,9 @@ export const ScheduleTable = ({
                 const day = idx + 1;
                 const weekday = getWeekdayIndexMondayFirst(year, month, day);
                 const weekend = weekday >= 5;
+                const dayClass = focusDay === day ? 'day-focus' : '';
                 return (
-                  <th key={date} className={weekend ? 'weekend' : ''}>
+                  <th key={date} data-day={day} className={`${weekend ? 'weekend' : ''} ${dayClass}`.trim()}>
                     <div>{day}</div>
                     <div className="weekday">{WEEKDAY_SHORT[weekday]}</div>
                   </th>
@@ -128,6 +137,7 @@ export const ScheduleTable = ({
               <tr key={employee.id}>
                 <td className="sticky-col">{employee.full_name}</td>
                 {dates.map((date, colIndex) => {
+                  const day = colIndex + 1;
                   const value = getCellValue(employee.id, date);
                   const objectName = value.type === 'OBJECT' ? objects.find((item) => item.id === value.value)?.short_ru ?? '—' : '';
                   const display = value.type === 'OBJECT' ? objectName : SPECIAL_LABELS[value.value];
@@ -135,7 +145,7 @@ export const ScheduleTable = ({
                   return (
                     <td
                       key={date}
-                      className={isSelected(rowIndex, colIndex) ? 'selected' : ''}
+                      className={`${isSelected(rowIndex, colIndex) ? 'selected' : ''} ${focusDay === day ? 'day-focus' : ''}`.trim()}
                       onMouseDown={() => !readOnly && setSelectionStart({ row: rowIndex, col: colIndex })}
                       onMouseEnter={() => !readOnly && selectionStart && setSelectionEnd({ row: rowIndex, col: colIndex })}
                       onMouseUp={() => !readOnly && setSelectionEnd({ row: rowIndex, col: colIndex })}

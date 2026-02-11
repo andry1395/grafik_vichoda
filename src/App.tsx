@@ -31,7 +31,7 @@ const AdminGate = ({ children, superOnly = false }: { children: JSX.Element; sup
   const gate = useMemo(
     () => (
       <section key={tick}>
-        <h1>Админка: вход ({selectedAdmin.name})</h1>
+        <h1>Администрирование: вход ({selectedAdmin.name})</h1>
         <p>Редактировать график может только выбранный администратор. Введите пароль.</p>
         <div className="toolbar-row">
           <input

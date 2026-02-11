@@ -6,15 +6,23 @@ import { coverageIssueToText, getCoverageIssues } from '../utils/coverage';
 import { exportMonthToXlsx } from '../utils/export';
 import { getSelectedAdminId } from '../utils/adminAuth';
 
+const currentMonthNumber = (): number => {
+  const current = new Date().getMonth() + 1;
+  return current >= 1 && current <= 12 ? current : 1;
+};
+
 export const MePage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
   const [nameFilter, setNameFilter] = useState('');
-  const [month, setMonth] = useState(1);
+  const [month, setMonth] = useState(currentMonthNumber());
+  const [dayFilter, setDayFilter] = useState('');
 
   const monthKey = `2026-${String(month).padStart(2, '0')}`;
   const monthData = dataService.getMonth(selectedAdminId, monthKey);
   const employeesByAdmin = dataService.getEmployeesByAdmin(selectedAdminId);
   const objectsByAdmin = dataService.getObjectsByAdmin(selectedAdminId);
+
+  const focusDay = dayFilter.trim() ? Number(dayFilter) : null;
 
   const visibleEmployees = useMemo(() => {
     const normalized = nameFilter.trim().toLocaleLowerCase('ru-RU');
@@ -53,6 +61,14 @@ export const MePage = (): JSX.Element => {
             </option>
           ))}
         </select>
+        <input
+          type="number"
+          min={1}
+          max={31}
+          value={dayFilter}
+          onChange={(event) => setDayFilter(event.target.value)}
+          placeholder="День"
+        />
         <button
           type="button"
           onClick={() => {
@@ -79,6 +95,7 @@ export const MePage = (): JSX.Element => {
           employees={visibleEmployees}
           objects={objectsByAdmin}
           readOnly
+          focusDay={focusDay}
           getCellValue={(employeeId, date) => {
             const entry = dataService.getVisibleEntryForEmployee(selectedAdminId, monthKey, employeeId, date);
             if (!entry) return { type: 'SPECIAL', value: 'OFF' } as const;

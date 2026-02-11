@@ -101,3 +101,7 @@ button {
   border-color: #dc2626;
   color: #991b1b;
 }
+
+.day-focus {
+  background: #dbeafe !important;
+}

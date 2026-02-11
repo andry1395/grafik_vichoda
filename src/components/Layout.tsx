@@ -40,7 +40,7 @@ export const Layout = (): JSX.Element => {
             window.location.hash = '#/admin/2026/01';
           }}
         >
-          Выйти из админ-режима
+          Выйти из администрирования
         </button>
       </header>
       <aside className="sidebar">
@@ -50,7 +50,7 @@ export const Layout = (): JSX.Element => {
             <NavLink to="/viewer">Просмотр графиков</NavLink>
           </div>
 
-          <h3>Админка</h3>
+          <h3>Администрирование</h3>
           <div className="nav-group">
             <span>Месяцы</span>
             {MONTHS_2026.map((month) => (

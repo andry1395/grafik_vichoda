@@ -16,6 +16,7 @@ export const AdminMonthPage = (): JSX.Element => {
   const [tick, setTick] = useState(0);
   const [notice, setNotice] = useState<string>('');
   const [employeeSearch, setEmployeeSearch] = useState('');
+  const [dayFilter, setDayFilter] = useState('');
 
   const activeEmployees = dataService.getEmployeesByAdmin(selectedAdminId).filter((employee) => employee.active);
   const employees = activeEmployees.filter((employee) =>
@@ -58,6 +59,14 @@ export const AdminMonthPage = (): JSX.Element => {
           value={employeeSearch}
           onChange={(event) => setEmployeeSearch(event.target.value)}
           placeholder="Поиск сотрудника по имени"
+        />
+        <input
+          type="number"
+          min={1}
+          max={31}
+          value={dayFilter}
+          onChange={(event) => setDayFilter(event.target.value)}
+          placeholder="День"
         />
         <button type="button" onClick={() => rerender('Сохранено')}>
           Сохранить
@@ -106,6 +115,7 @@ export const AdminMonthPage = (): JSX.Element => {
         month={month}
         employees={employees}
         objects={objects}
+        focusDay={dayFilter.trim() ? Number(dayFilter) : null}
         getCellValue={(employeeId, date) => dataService.getCellValue(selectedAdminId, monthKey, employeeId, date)}
         setCellValue={(employeeId, date, value) => {
           if (value.type === 'OBJECT') {
