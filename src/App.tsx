@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { AdminMonthPage } from './pages/AdminMonthPage';
@@ -65,6 +65,14 @@ const AdminGate = ({ children, superOnly = false }: { children: JSX.Element; sup
 };
 
 export const App = (): JSX.Element => {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    return dataService.subscribeToChanges(() => {
+      setTick((value) => value + 1);
+    });
+  }, []);
+
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/viewer" replace />} />
