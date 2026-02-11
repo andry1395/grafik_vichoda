@@ -4,32 +4,35 @@ import { dataService } from '../services/dataService';
 import { MONTHS_2026 } from '../utils/constants';
 import { coverageIssueToText, getCoverageIssues } from '../utils/coverage';
 import { exportMonthToXlsx } from '../utils/export';
+import { getSelectedAdminId } from '../utils/adminAuth';
 
 export const MePage = (): JSX.Element => {
-  const appData = dataService.getAppData();
+  const selectedAdminId = getSelectedAdminId();
   const [nameFilter, setNameFilter] = useState('');
   const [month, setMonth] = useState(1);
 
   const monthKey = `2026-${String(month).padStart(2, '0')}`;
-  const monthData = dataService.getMonth(monthKey);
+  const monthData = dataService.getMonth(selectedAdminId, monthKey);
+  const employeesByAdmin = dataService.getEmployeesByAdmin(selectedAdminId);
+  const objectsByAdmin = dataService.getObjectsByAdmin(selectedAdminId);
 
   const visibleEmployees = useMemo(() => {
     const normalized = nameFilter.trim().toLocaleLowerCase('ru-RU');
-    const active = appData.employees.filter((employee) => employee.active);
+    const active = employeesByAdmin.filter((employee) => employee.active);
     if (!normalized) return active;
     return active.filter((employee) => employee.full_name.toLocaleLowerCase('ru-RU').includes(normalized));
-  }, [appData.employees, nameFilter]);
+  }, [employeesByAdmin, nameFilter]);
 
   const coverageIssues = useMemo(
     () =>
       getCoverageIssues({
         year: 2026,
         month,
-        employees: appData.employees.filter((employee) => employee.active),
-        objects: appData.objects,
-        getCellValue: (employeeId, date) => dataService.getCellValue(monthKey, employeeId, date)
+        employees: employeesByAdmin.filter((employee) => employee.active),
+        objects: objectsByAdmin,
+        getCellValue: (employeeId, date) => dataService.getCellValue(selectedAdminId, monthKey, employeeId, date)
       }),
-    [appData.employees, appData.objects, month, monthKey]
+    [employeesByAdmin, month, monthKey, objectsByAdmin, selectedAdminId]
   );
 
   return (
@@ -57,8 +60,8 @@ export const MePage = (): JSX.Element => {
               year: 2026,
               month,
               employees: visibleEmployees,
-              objects: appData.objects,
-              getCellValue: (employeeId, date) => dataService.getCellValue(monthKey, employeeId, date)
+              objects: objectsByAdmin,
+              getCellValue: (employeeId, date) => dataService.getCellValue(selectedAdminId, monthKey, employeeId, date)
             });
           }}
         >
@@ -74,10 +77,10 @@ export const MePage = (): JSX.Element => {
           year={2026}
           month={month}
           employees={visibleEmployees}
-          objects={appData.objects}
+          objects={objectsByAdmin}
           readOnly
           getCellValue={(employeeId, date) => {
-            const entry = dataService.getVisibleEntryForEmployee(monthKey, employeeId, date);
+            const entry = dataService.getVisibleEntryForEmployee(selectedAdminId, monthKey, employeeId, date);
             if (!entry) return { type: 'SPECIAL', value: 'OFF' } as const;
             if (entry.kind === 'OBJECT' && entry.object_id) {
               return { type: 'OBJECT', value: entry.object_id } as const;

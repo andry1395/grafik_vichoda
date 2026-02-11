@@ -1,22 +1,38 @@
+import { useMemo, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { AdminMonthPage } from './pages/AdminMonthPage';
+import { AdminsPage } from './pages/AdminsPage';
 import { EmployeesPage } from './pages/EmployeesPage';
 import { MePage } from './pages/MePage';
 import { ObjectsPage } from './pages/ObjectsPage';
-import { ADMIN_PASSWORD, isAdminSessionUnlocked, setAdminSessionUnlocked } from './utils/adminAuth';
-import { useMemo, useState } from 'react';
+import { dataService } from './services/dataService';
+import { getAdminSessionId, getSelectedAdminId, setAdminSessionId } from './utils/adminAuth';
 
-const AdminGate = ({ children }: { children: JSX.Element }): JSX.Element => {
+const AdminGate = ({ children, superOnly = false }: { children: JSX.Element; superOnly?: boolean }): JSX.Element => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [unlocked, setUnlocked] = useState(isAdminSessionUnlocked());
+  const [tick, setTick] = useState(0);
+
+  const selectedAdminId = getSelectedAdminId();
+  const selectedAdmin = dataService.getAdmins().find((item) => item.id === selectedAdminId);
+  const sessionAdminId = getAdminSessionId();
+  const unlocked = sessionAdminId === selectedAdminId;
+  const isSuper = Boolean(selectedAdmin?.is_super);
+
+  if (!selectedAdmin) {
+    return <p>Админ не найден. Выберите вкладку администратора.</p>;
+  }
+
+  if (superOnly && !isSuper) {
+    return <p>Доступно только главному админу.</p>;
+  }
 
   const gate = useMemo(
     () => (
-      <section>
-        <h1>Админка: вход</h1>
-        <p>Редактировать график может только администратор. Введите пароль.</p>
+      <section key={tick}>
+        <h1>Админка: вход ({selectedAdmin.name})</h1>
+        <p>Редактировать график может только выбранный администратор. Введите пароль.</p>
         <div className="toolbar-row">
           <input
             type="password"
@@ -27,10 +43,10 @@ const AdminGate = ({ children }: { children: JSX.Element }): JSX.Element => {
           <button
             type="button"
             onClick={() => {
-              if (password === ADMIN_PASSWORD) {
-                setAdminSessionUnlocked(true);
-                setUnlocked(true);
+              if (dataService.validateAdminPassword(selectedAdminId, password)) {
+                setAdminSessionId(selectedAdminId);
                 setError('');
+                setTick((value) => value + 1);
               } else {
                 setError('Неверный пароль');
               }
@@ -42,7 +58,7 @@ const AdminGate = ({ children }: { children: JSX.Element }): JSX.Element => {
         {error && <div className="notice notice-error">{error}</div>}
       </section>
     ),
-    [password, error]
+    [error, password, selectedAdmin.name, selectedAdminId, tick]
   );
 
   return unlocked ? children : gate;
@@ -77,6 +93,14 @@ export const App = (): JSX.Element => {
           element={
             <AdminGate>
               <ObjectsPage />
+            </AdminGate>
+          }
+        />
+        <Route
+          path="/admin/admins"
+          element={
+            <AdminGate superOnly>
+              <AdminsPage />
             </AdminGate>
           }
         />

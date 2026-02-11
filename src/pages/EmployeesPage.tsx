@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { dataService } from '../services/dataService';
+import { getSelectedAdminId } from '../utils/adminAuth';
 
 export const EmployeesPage = (): JSX.Element => {
+  const selectedAdminId = getSelectedAdminId();
   const [tick, setTick] = useState(0);
   const [fullName, setFullName] = useState('');
   const [notice, setNotice] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
-  const employees = dataService.getAppData().employees;
+  const employees = dataService.getEmployeesByAdmin(selectedAdminId);
 
   return (
     <section>
@@ -20,7 +22,7 @@ export const EmployeesPage = (): JSX.Element => {
           type="button"
           onClick={() => {
             if (!fullName.trim()) return;
-            dataService.upsertEmployee({ full_name: fullName.trim(), active: true });
+            dataService.upsertEmployee({ admin_id: selectedAdminId, full_name: fullName.trim(), active: true });
             setFullName('');
             setTick((value) => value + 1);
             setNotice('Сохранено');
@@ -43,13 +45,7 @@ export const EmployeesPage = (): JSX.Element => {
             const isEditing = editingId === employee.id;
             return (
               <tr key={employee.id}>
-                <td>
-                  {isEditing ? (
-                    <input value={editingName} onChange={(event) => setEditingName(event.target.value)} />
-                  ) : (
-                    employee.full_name
-                  )}
-                </td>
+                <td>{isEditing ? <input value={editingName} onChange={(event) => setEditingName(event.target.value)} /> : employee.full_name}</td>
                 <td>{employee.token}</td>
                 <td>{employee.active ? 'Активен' : 'Неактивен'}</td>
                 <td>
@@ -62,6 +58,7 @@ export const EmployeesPage = (): JSX.Element => {
                             if (!editingName.trim()) return;
                             dataService.upsertEmployee({
                               id: employee.id,
+                              admin_id: selectedAdminId,
                               full_name: editingName.trim(),
                               active: employee.active,
                               token: employee.token
@@ -73,13 +70,7 @@ export const EmployeesPage = (): JSX.Element => {
                         >
                           Сохранить
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingId(null);
-                            setEditingName('');
-                          }}
-                        >
+                        <button type="button" onClick={() => setEditingId(null)}>
                           Отмена
                         </button>
                       </>
@@ -100,13 +91,12 @@ export const EmployeesPage = (): JSX.Element => {
                       onClick={() => {
                         dataService.upsertEmployee({
                           id: employee.id,
+                          admin_id: selectedAdminId,
                           full_name: employee.full_name,
                           active: !employee.active,
                           token: employee.token
                         });
-                        if (editingId === employee.id) {
-                          setEditingId(null);
-                        }
+                        if (editingId === employee.id) setEditingId(null);
                         setTick((value) => value + 1);
                         setNotice('Сохранено');
                       }}
@@ -119,9 +109,7 @@ export const EmployeesPage = (): JSX.Element => {
                       onClick={() => {
                         if (!window.confirm(`Удалить сотрудника ${employee.full_name}?`)) return;
                         dataService.removeEmployee(employee.id);
-                        if (editingId === employee.id) {
-                          setEditingId(null);
-                        }
+                        if (editingId === employee.id) setEditingId(null);
                         setTick((value) => value + 1);
                         setNotice('Сотрудник удален');
                       }}

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { dataService } from '../services/dataService';
+import { getSelectedAdminId } from '../utils/adminAuth';
 
 export const ObjectsPage = (): JSX.Element => {
+  const selectedAdminId = getSelectedAdminId();
   const [tick, setTick] = useState(0);
   const [name, setName] = useState('');
   const [shortName, setShortName] = useState('');
@@ -10,7 +12,7 @@ export const ObjectsPage = (): JSX.Element => {
   const [editingName, setEditingName] = useState('');
   const [editingShortName, setEditingShortName] = useState('');
 
-  const objects = dataService.getAppData().objects;
+  const objects = dataService.getObjectsByAdmin(selectedAdminId);
 
   return (
     <section>
@@ -23,7 +25,7 @@ export const ObjectsPage = (): JSX.Element => {
           type="button"
           onClick={() => {
             if (!name.trim()) return;
-            dataService.upsertObject({ name_ru: name.trim(), short_ru: shortName.trim(), active: true });
+            dataService.upsertObject({ admin_id: selectedAdminId, name_ru: name.trim(), short_ru: shortName.trim(), active: true });
             setName('');
             setShortName('');
             setTick((value) => value + 1);
@@ -47,19 +49,9 @@ export const ObjectsPage = (): JSX.Element => {
             const isEditing = editingId === objectItem.id;
             return (
               <tr key={objectItem.id}>
+                <td>{isEditing ? <input value={editingName} onChange={(event) => setEditingName(event.target.value)} /> : objectItem.name_ru}</td>
                 <td>
-                  {isEditing ? (
-                    <input value={editingName} onChange={(event) => setEditingName(event.target.value)} />
-                  ) : (
-                    objectItem.name_ru
-                  )}
-                </td>
-                <td>
-                  {isEditing ? (
-                    <input value={editingShortName} onChange={(event) => setEditingShortName(event.target.value)} />
-                  ) : (
-                    objectItem.short_ru
-                  )}
+                  {isEditing ? <input value={editingShortName} onChange={(event) => setEditingShortName(event.target.value)} /> : objectItem.short_ru}
                 </td>
                 <td>{objectItem.active ? 'Активен' : 'Неактивен'}</td>
                 <td>
@@ -72,6 +64,7 @@ export const ObjectsPage = (): JSX.Element => {
                             if (!editingName.trim()) return;
                             dataService.upsertObject({
                               id: objectItem.id,
+                              admin_id: selectedAdminId,
                               name_ru: editingName.trim(),
                               short_ru: editingShortName.trim(),
                               active: objectItem.active
@@ -83,14 +76,7 @@ export const ObjectsPage = (): JSX.Element => {
                         >
                           Сохранить
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingId(null);
-                            setEditingName('');
-                            setEditingShortName('');
-                          }}
-                        >
+                        <button type="button" onClick={() => setEditingId(null)}>
                           Отмена
                         </button>
                       </>
@@ -112,13 +98,12 @@ export const ObjectsPage = (): JSX.Element => {
                       onClick={() => {
                         dataService.upsertObject({
                           id: objectItem.id,
+                          admin_id: selectedAdminId,
                           name_ru: objectItem.name_ru,
                           short_ru: objectItem.short_ru,
                           active: !objectItem.active
                         });
-                        if (editingId === objectItem.id) {
-                          setEditingId(null);
-                        }
+                        if (editingId === objectItem.id) setEditingId(null);
                         setTick((value) => value + 1);
                         setNotice('Сохранено');
                       }}
@@ -131,9 +116,7 @@ export const ObjectsPage = (): JSX.Element => {
                       onClick={() => {
                         if (!window.confirm(`Удалить объект ${objectItem.name_ru}?`)) return;
                         dataService.removeObject(objectItem.id);
-                        if (editingId === objectItem.id) {
-                          setEditingId(null);
-                        }
+                        if (editingId === objectItem.id) setEditingId(null);
                         setTick((value) => value + 1);
                         setNotice('Объект удален');
                       }}

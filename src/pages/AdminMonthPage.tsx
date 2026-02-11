@@ -6,22 +6,23 @@ import type { SpecialValue } from '../types';
 import { buildDateKey, daysInMonth } from '../utils/date';
 import { exportMonthToXlsx } from '../utils/export';
 import { coverageIssueToText, getCoverageIssues } from '../utils/coverage';
+import { getSelectedAdminId } from '../utils/adminAuth';
 
 export const AdminMonthPage = (): JSX.Element => {
   const params = useParams<{ month: string }>();
   const month = Number(params.month ?? '1');
   const monthKey = `2026-${String(month).padStart(2, '0')}`;
+  const selectedAdminId = getSelectedAdminId();
   const [tick, setTick] = useState(0);
   const [notice, setNotice] = useState<string>('');
   const [employeeSearch, setEmployeeSearch] = useState('');
 
-  const appData = dataService.getAppData();
-  const activeEmployees = appData.employees.filter((employee) => employee.active);
+  const activeEmployees = dataService.getEmployeesByAdmin(selectedAdminId).filter((employee) => employee.active);
   const employees = activeEmployees.filter((employee) =>
     employee.full_name.toLocaleLowerCase('ru-RU').includes(employeeSearch.trim().toLocaleLowerCase('ru-RU'))
   );
-  const objects = appData.objects;
-  const monthData = dataService.getMonth(monthKey);
+  const objects = dataService.getObjectsByAdmin(selectedAdminId);
+  const monthData = dataService.getMonth(selectedAdminId, monthKey);
 
   const dates = useMemo(() => {
     const count = daysInMonth(2026, month);
@@ -35,9 +36,9 @@ export const AdminMonthPage = (): JSX.Element => {
         month,
         employees: activeEmployees,
         objects,
-        getCellValue: (employeeId, date) => dataService.getCellValue(monthKey, employeeId, date)
+        getCellValue: (employeeId, date) => dataService.getCellValue(selectedAdminId, monthKey, employeeId, date)
       }),
-    [activeEmployees, month, monthKey, objects, tick]
+    [activeEmployees, month, monthKey, objects, selectedAdminId, tick]
   );
 
   const rerender = (message: string): void => {
@@ -51,7 +52,6 @@ export const AdminMonthPage = (): JSX.Element => {
       <h1>График {String(month).padStart(2, '0')}.2026</h1>
       <p>Статус: {monthData.status === 'published' ? 'Опубликован' : 'Черновик'}</p>
       {notice && <div className="notice">{notice}</div>}
-      
 
       <div className="toolbar-row">
         <input
@@ -66,6 +66,7 @@ export const AdminMonthPage = (): JSX.Element => {
           type="button"
           onClick={() => {
             dataService.publishMonth(
+              selectedAdminId,
               monthKey,
               dates,
               activeEmployees.map((employee) => employee.id)
@@ -78,7 +79,7 @@ export const AdminMonthPage = (): JSX.Element => {
         <button
           type="button"
           onClick={() => {
-            dataService.setMonthStatus(monthKey, 'draft');
+            dataService.setMonthStatus(selectedAdminId, monthKey, 'draft');
             rerender('Публикация снята');
           }}
         >
@@ -92,7 +93,7 @@ export const AdminMonthPage = (): JSX.Element => {
               month,
               employees,
               objects,
-              getCellValue: (employeeId, date) => dataService.getCellValue(monthKey, employeeId, date)
+              getCellValue: (employeeId, date) => dataService.getCellValue(selectedAdminId, monthKey, employeeId, date)
             });
           }}
         >
@@ -105,21 +106,20 @@ export const AdminMonthPage = (): JSX.Element => {
         month={month}
         employees={employees}
         objects={objects}
-        getCellValue={(employeeId, date) => dataService.getCellValue(monthKey, employeeId, date)}
+        getCellValue={(employeeId, date) => dataService.getCellValue(selectedAdminId, monthKey, employeeId, date)}
         setCellValue={(employeeId, date, value) => {
           if (value.type === 'OBJECT') {
-            dataService.setEntry(monthKey, employeeId, date, { kind: 'OBJECT', object_id: value.value });
+            dataService.setEntry(selectedAdminId, monthKey, employeeId, date, { kind: 'OBJECT', object_id: value.value });
           } else {
-            dataService.setEntry(monthKey, employeeId, date, { kind: 'SPECIAL', special: value.value as SpecialValue });
+            dataService.setEntry(selectedAdminId, monthKey, employeeId, date, { kind: 'SPECIAL', special: value.value as SpecialValue });
           }
           setTick((x) => x + 1);
         }}
         clearCellValue={(employeeId, date) => {
-          dataService.clearEntry(monthKey, employeeId, date);
+          dataService.clearEntry(selectedAdminId, monthKey, employeeId, date);
           setTick((x) => x + 1);
         }}
       />
-
 
       {coverageIssues.length > 0 && (
         <div className="notice notice-error">
