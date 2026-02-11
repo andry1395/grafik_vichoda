@@ -62,21 +62,9 @@ export const MePage = (): JSX.Element => {
             });
           }}
         >
-          Выгрузить XLSX
+          Выгрузить Excel (CSV)
         </button>
       </div>
-
-      {coverageIssues.length > 0 && (
-        <div className="notice notice-error">
-          <strong>Проверка заполнения объектов:</strong>
-          <ul>
-            {coverageIssues.slice(0, 8).map((issue) => (
-              <li key={issue.date}>{coverageIssueToText(issue)}</li>
-            ))}
-          </ul>
-          {coverageIssues.length > 8 && <div>И еще {coverageIssues.length - 8} дн.</div>}
-        </div>
-      )}
 
       {monthData.status !== 'published' && <p>График еще не опубликован</p>}
       {monthData.status === 'published' && visibleEmployees.length === 0 && <p>Сотрудники не найдены.</p>}
@@ -97,6 +85,18 @@ export const MePage = (): JSX.Element => {
             return { type: 'SPECIAL', value: entry.special ?? 'OFF' } as const;
           }}
         />
+      )}
+
+      {coverageIssues.length > 0 && (
+        <div className="notice notice-error">
+          <strong>Проверка заполнения объектов:</strong>
+          <ul>
+            {coverageIssues.slice(0, 8).map((issue) => (
+              <li key={issue.date}>{coverageIssueToText(issue)}</li>
+            ))}
+          </ul>
+          {coverageIssues.length > 8 && <div>И еще {coverageIssues.length - 8} дн.</div>}
+        </div>
       )}
     </section>
   );

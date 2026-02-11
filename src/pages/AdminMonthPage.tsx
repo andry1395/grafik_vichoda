@@ -51,17 +51,7 @@ export const AdminMonthPage = (): JSX.Element => {
       <h1>График {String(month).padStart(2, '0')}.2026</h1>
       <p>Статус: {monthData.status === 'published' ? 'Опубликован' : 'Черновик'}</p>
       {notice && <div className="notice">{notice}</div>}
-      {coverageIssues.length > 0 && (
-        <div className="notice notice-error">
-          <strong>Проверка заполнения объектов:</strong>
-          <ul>
-            {coverageIssues.slice(0, 8).map((issue) => (
-              <li key={issue.date}>{coverageIssueToText(issue)}</li>
-            ))}
-          </ul>
-          {coverageIssues.length > 8 && <div>И еще {coverageIssues.length - 8} дн.</div>}
-        </div>
-      )}
+      
 
       <div className="toolbar-row">
         <input
@@ -106,7 +96,7 @@ export const AdminMonthPage = (): JSX.Element => {
             });
           }}
         >
-          Выгрузить XLSX
+          Выгрузить Excel (CSV)
         </button>
       </div>
 
@@ -129,6 +119,19 @@ export const AdminMonthPage = (): JSX.Element => {
           setTick((x) => x + 1);
         }}
       />
+
+
+      {coverageIssues.length > 0 && (
+        <div className="notice notice-error">
+          <strong>Проверка заполнения объектов:</strong>
+          <ul>
+            {coverageIssues.slice(0, 8).map((issue) => (
+              <li key={issue.date}>{coverageIssueToText(issue)}</li>
+            ))}
+          </ul>
+          {coverageIssues.length > 8 && <div>И еще {coverageIssues.length - 8} дн.</div>}
+        </div>
+      )}
     </section>
   );
 };

@@ -16,7 +16,7 @@ const monthName = (month: number): string => String(month).padStart(2, '0');
 
 /**
  * Экспортирует данные в CSV с BOM в кодировке UTF-8.
- * Файл имеет расширение .xlsx для удобного открытия в Excel по бизнес-требованию.
+ * Файл сохраняется в формате .csv (UTF-8 BOM), который корректно открывается в Excel.
  */
 export const exportMonthToXlsx = ({ year, month, employees, objects, getCellValue }: ExportParams): void => {
   const days = daysInMonth(year, month);
@@ -44,11 +44,11 @@ export const exportMonthToXlsx = ({ year, month, employees, objects, getCellValu
   }
 
   const csv = `\uFEFF${lines.join('\n')}`;
-  const blob = new Blob([csv], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8;' });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `grafik-${year}-${monthName(month)}.xlsx`;
+  link.download = `grafik-${year}-${monthName(month)}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 };
