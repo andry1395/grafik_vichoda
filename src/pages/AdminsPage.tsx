@@ -51,20 +51,23 @@ const AdminRow = ({ adminId }: { adminId: string }): JSX.Element => {
   const [editName, setEditName] = useState(admin.name);
   const [editPassword, setEditPassword] = useState('');
 
-  if (admin.is_super) {
-    return (
-      <tr>
-        <td>{admin.name}</td>
-        <td>Главный администратор</td>
-        <td>—</td>
-      </tr>
-    );
-  }
+  const saveAdmin = (): void => {
+    if (!editName.trim()) return;
+    dataService.upsertAdmin({
+      id: admin.id,
+      name: editName.trim(),
+      password: editPassword.trim() || admin.password,
+      is_super: admin.is_super
+    });
+    setIsEditing(false);
+    setEditPassword('');
+    window.location.reload();
+  };
 
   return (
     <tr>
       <td>{isEditing ? <input value={editName} onChange={(event) => setEditName(event.target.value)} /> : admin.name}</td>
-      <td>Администратор</td>
+      <td>{admin.is_super ? 'Главный администратор' : 'Администратор'}</td>
       <td>
         <div className="toolbar-row">
           {isEditing ? (
@@ -75,21 +78,7 @@ const AdminRow = ({ adminId }: { adminId: string }): JSX.Element => {
                 placeholder="Новый пароль (необязательно)"
                 type="password"
               />
-              <button
-                type="button"
-                onClick={() => {
-                  if (!editName.trim()) return;
-                  dataService.upsertAdmin({
-                    id: admin.id,
-                    name: editName.trim(),
-                    password: editPassword.trim() || admin.password,
-                    is_super: false
-                  });
-                  setIsEditing(false);
-                  setEditPassword('');
-                  window.location.reload();
-                }}
-              >
+              <button type="button" onClick={saveAdmin}>
                 Сохранить
               </button>
               <button
@@ -109,16 +98,18 @@ const AdminRow = ({ adminId }: { adminId: string }): JSX.Element => {
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={() => {
-              if (!window.confirm(`Удалить администратора ${admin.name}?`)) return;
-              dataService.removeAdmin(admin.id);
-              window.location.reload();
-            }}
-          >
-            Удалить
-          </button>
+          {!admin.is_super && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!window.confirm(`Удалить администратора ${admin.name}?`)) return;
+                dataService.removeAdmin(admin.id);
+                window.location.reload();
+              }}
+            >
+              Удалить
+            </button>
+          )}
         </div>
       </td>
     </tr>

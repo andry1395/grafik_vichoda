@@ -34,9 +34,7 @@ const ensureDataShape = (input: unknown): AppData => {
   const maybe = input as AppData;
   if (!maybe || typeof maybe !== 'object') return structuredClone(defaultData);
   const admins = Array.isArray(maybe.admins) && maybe.admins.length > 0 ? maybe.admins : structuredClone(defaultData.admins);
-  const normalizedAdmins = admins.map((admin) =>
-    admin.id === SUPER_ADMIN_ID ? { ...admin, name: 'Епиванов А В', is_super: true } : admin
-  );
+  const normalizedAdmins = admins.map((admin) => (admin.id === SUPER_ADMIN_ID ? { ...admin, is_super: true } : admin));
 
   return {
     admins: normalizedAdmins,
