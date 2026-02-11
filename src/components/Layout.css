@@ -1,0 +1,269 @@
+.app-shell {
+  display: grid;
+  grid-template-columns: 270px 1fr;
+  grid-template-rows: 68px 1fr;
+  min-height: 100vh;
+}
+
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #0f1f45 0%, #172d60 55%, #1d3a7c 100%);
+  color: #fff;
+  padding: 10px 16px;
+  min-height: 68px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+}
+
+.logo {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.menu-toggle {
+  background: rgba(15, 23, 42, 0.55);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 10px;
+  padding: 7px 11px;
+}
+
+.sidebar {
+  background: linear-gradient(180deg, #f9fbff 0%, #f2f6ff 100%);
+  padding: 16px;
+  border-right: 1px solid #d6e0f0;
+}
+
+.sidebar h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #1e3a8a;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 18px;
+}
+
+.nav-group span {
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.sidebar a {
+  text-decoration: none;
+  color: #1f2937;
+  padding: 8px 9px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.sidebar a:hover {
+  background: #eff4ff;
+  border-color: #c3d4f3;
+}
+
+.sidebar a.active {
+  background: #dfeaff;
+  color: #11306f;
+  border-color: #b7cbf0;
+  font-weight: 600;
+}
+
+.content {
+  padding: 20px;
+  overflow: auto;
+}
+
+.logout-btn {
+  background: rgba(15, 23, 42, 0.45);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.logout-btn:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 18px rgba(16, 185, 129, 0.14);
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  max-width: 48vw;
+  padding-bottom: 2px;
+}
+
+.admin-tab {
+  background: rgba(51, 65, 85, 0.42);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 9px;
+  padding: 5px 10px;
+}
+
+.admin-tab.active {
+  background: #3b82f6;
+  border-color: #93c5fd;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+.app-shell.sidebar-hidden {
+  grid-template-columns: 1fr;
+}
+
+.app-shell.sidebar-hidden .sidebar {
+  display: none;
+}
+
+@media (max-width: 1200px) {
+  .topbar {
+    flex-wrap: nowrap;
+    min-height: auto;
+  }
+
+  .admin-tabs {
+    max-width: 42vw;
+  }
+
+  .content {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 900px) {
+  .topbar-actions {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .admin-tabs {
+    max-width: 38vw;
+  }
+
+  .app-shell,
+  .app-shell.sidebar-hidden {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 68px;
+    left: 0;
+    width: min(84vw, 320px);
+    height: calc(100vh - 68px);
+    z-index: 20;
+    box-shadow: 0 16px 38px rgba(15, 23, 42, 0.25);
+    overflow-y: auto;
+    transition: transform 0.22s ease;
+  }
+
+  .app-shell.sidebar-hidden .sidebar {
+    display: block;
+    transform: translateX(-110%);
+    pointer-events: none;
+  }
+
+  .app-shell.sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    top: 68px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border: 0;
+    background: rgba(15, 23, 42, 0.42);
+    z-index: 10;
+    padding: 0;
+    margin: 0;
+  }
+
+  .app-shell.sidebar-hidden .sidebar-backdrop {
+    display: none;
+  }
+
+  .logo {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    gap: 6px;
+    padding: 8px 10px;
+  }
+
+  .menu-toggle {
+    width: auto;
+    flex: 0 0 auto;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  .logo {
+    font-size: 22px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 42vw;
+  }
+
+  .topbar-actions {
+    gap: 6px;
+    margin-left: 0;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .admin-tabs {
+    max-width: 44vw;
+    scrollbar-width: thin;
+  }
+
+  .admin-tab,
+  .logout-btn {
+    min-height: 34px;
+    padding: 4px 8px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .logout-btn {
+    flex: 0 0 auto;
+  }
+}
