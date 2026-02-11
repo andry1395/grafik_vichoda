@@ -135,53 +135,6 @@ const setToStorage = (data: AppData): void => {
   emitDataChanged();
 };
 
-const getFromStorage = (): AppData => {
-  runInitialRemotePull();
-  const snapshot = readLocalSnapshot();
-  if (snapshot) return snapshot;
-
-  writeToLocalStorage(defaultData);
-  return structuredClone(defaultData);
-};
-
-let queuedRemoteSnapshot: AppData | null = null;
-let remotePushInFlight = false;
-let remotePushRetryTimer: ReturnType<typeof setTimeout> | undefined;
-let localMutationVersion = 0;
-
-const flushRemoteQueue = async (): Promise<void> => {
-  if (remotePushInFlight || !queuedRemoteSnapshot || !isFirebaseConfigured()) return;
-  remotePushInFlight = true;
-  const snapshot = queuedRemoteSnapshot;
-
-  try {
-    await pushAppDataToFirestore(firebaseConfig.projectId, firebaseConfig.apiKey, snapshot);
-    if (queuedRemoteSnapshot === snapshot) queuedRemoteSnapshot = null;
-  } catch {
-    if (remotePushRetryTimer === undefined) {
-      remotePushRetryTimer = globalThis.setTimeout(() => {
-        remotePushRetryTimer = undefined;
-        void flushRemoteQueue();
-      }, FIRESTORE_PUSH_RETRY_MS);
-    }
-  } finally {
-    remotePushInFlight = false;
-    if (queuedRemoteSnapshot) void flushRemoteQueue();
-  }
-};
-
-const syncToRemote = (data: AppData): void => {
-  if (!isFirebaseConfigured()) return;
-  queuedRemoteSnapshot = structuredClone(data);
-  void flushRemoteQueue();
-};
-
-const setToStorage = (data: AppData): void => {
-  writeToLocalStorage(data);
-  localMutationVersion += 1;
-  syncToRemote(data);
-};
-
 
 let remoteSyncStarted = false;
 
