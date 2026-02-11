@@ -72,6 +72,27 @@ src/
    ```
 3. Открыть URL из терминала (обычно `http://localhost:5173`).
 
+
+## Подключение Firebase (подготовка к переносу с localStorage)
+
+1. Скопируйте шаблон переменных окружения:
+   ```bash
+   cp .env.example .env.local
+   ```
+2. Значения в `.env.example` уже заполнены вашим `firebaseConfig` (при необходимости обновите).
+3. Убедитесь, что в Firebase включены:
+   - Firestore Database
+   - Authentication → Email/Password
+4. В проект добавлен модуль `src/services/firebase.ts` с `firebaseConfig` и проверкой `isFirebaseConfigured()`.
+5. На следующем этапе подключаем Firebase SDK (`firebase`) и переводим методы `dataService` на Firestore.
+
+Сейчас включен гибридный этап:
+- приложение продолжает работать от `localStorage`;
+- при старте выполняется попытка подтянуть snapshot из Firestore (`appData/main`);
+- в `dataService` добавлены методы `pullFromFirestore()` и `pushToFirestore()` для ручной синхронизации.
+
+Следующий этап — перевод CRUD-методов на Firestore по частям (сотрудники, объекты, месяцы).
+
 ## Где лежат данные
 
 Все данные лежат в localStorage в ключе:

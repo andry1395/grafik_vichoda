@@ -1,5 +1,7 @@
 import type { AdminUser, AppData, Employee, MonthData, ScheduleEntry, SpecialValue, WorkObject } from '../types';
 import { STORAGE_KEY } from '../utils/constants';
+import { firebaseConfig, isFirebaseConfigured } from './firebase';
+import { pullAppDataFromFirestore, pushAppDataToFirestore } from './firestoreRest';
 
 const SUPER_ADMIN_ID = 'super-admin';
 
@@ -49,6 +51,7 @@ const ensureDataShape = (input: unknown): AppData => {
 };
 
 const getFromStorage = (): AppData => {
+  runInitialRemotePull();
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData));
@@ -64,6 +67,24 @@ const getFromStorage = (): AppData => {
 
 const setToStorage = (data: AppData): void => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+};
+
+
+let remoteSyncStarted = false;
+
+const runInitialRemotePull = (): void => {
+  if (remoteSyncStarted || !isFirebaseConfigured()) return;
+  remoteSyncStarted = true;
+
+  pullAppDataFromFirestore(firebaseConfig.projectId, firebaseConfig.apiKey)
+    .then((remoteData) => {
+      if (!remoteData) return;
+      const normalized = ensureDataShape(remoteData);
+      setToStorage(normalized);
+    })
+    .catch(() => {
+      // fallback to localStorage when Firestore is unreachable or rules deny access
+    });
 };
 
 const monthStorageKey = (adminId: string, monthKey: string): string => `${adminId}__${monthKey}`;
@@ -233,6 +254,21 @@ const getCellValue = (
   return { type: 'SPECIAL', value: entry.special ?? 'OFF' };
 };
 
+
+const pullFromFirestore = async (): Promise<boolean> => {
+  if (!isFirebaseConfigured()) return false;
+  const remoteData = await pullAppDataFromFirestore(firebaseConfig.projectId, firebaseConfig.apiKey);
+  if (!remoteData) return false;
+  setToStorage(ensureDataShape(remoteData));
+  return true;
+};
+
+const pushToFirestore = async (): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  const payload = getFromStorage();
+  await pushAppDataToFirestore(firebaseConfig.projectId, firebaseConfig.apiKey, payload);
+};
+
 export const dataService = {
   SUPER_ADMIN_ID,
   getAppData: getFromStorage,
@@ -254,5 +290,7 @@ export const dataService = {
   publishMonth,
   getCellValue,
   getEntryKey,
-  getVisibleEntryForEmployee
+  getVisibleEntryForEmployee,
+  pullFromFirestore,
+  pushToFirestore
 };
