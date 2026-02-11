@@ -42,6 +42,30 @@ export const AdminMonthPage = (): JSX.Element => {
     [activeEmployees, month, monthKey, objects, selectedAdminId, tick]
   );
 
+  const workDaysByMechanic = useMemo(
+    () =>
+      activeEmployees.map((employee) => {
+        const workDays = dates.reduce((total, date) => {
+          const cell = dataService.getCellValue(selectedAdminId, monthKey, employee.id, date);
+          return cell.type === 'OBJECT' ? total + 1 : total;
+        }, 0);
+
+        return {
+          id: employee.id,
+          name: employee.full_name,
+          workDays
+        };
+      }),
+    [activeEmployees, dates, monthKey, selectedAdminId, tick]
+  );
+
+  const offMechanicsOnDate = useMemo(() => {
+    if (!dayFilter || !dates.includes(dayFilter)) return [];
+    return activeEmployees
+      .filter((employee) => dataService.getCellValue(selectedAdminId, monthKey, employee.id, dayFilter).type === 'SPECIAL')
+      .map((employee) => employee.full_name);
+  }, [activeEmployees, dates, dayFilter, monthKey, selectedAdminId, tick]);
+
   const rerender = (message: string): void => {
     setTick((value) => value + 1);
     setNotice(message);
@@ -130,6 +154,32 @@ export const AdminMonthPage = (): JSX.Element => {
           setTick((x) => x + 1);
         }}
       />
+
+      <div className="summary-grid">
+        <div className="summary-card">
+          <h3>Рабочие дни механиков</h3>
+          <ul>
+            {workDaysByMechanic.map((item) => (
+              <li key={item.id}>
+                <strong>{item.name}</strong>: {item.workDays} дн.
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="summary-card">
+          <h3>Кто выходной в выбранную дату</h3>
+          {!dayFilter && <p>Выберите дату в фильтре выше.</p>}
+          {dayFilter && offMechanicsOnDate.length === 0 && <p>На {dayFilter} выходных нет.</p>}
+          {dayFilter && offMechanicsOnDate.length > 0 && (
+            <ul>
+              {offMechanicsOnDate.map((name) => (
+                <li key={name}>{name}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
 
       {coverageIssues.length > 0 && (
         <div className="notice notice-error">

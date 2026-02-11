@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Employee, SpecialValue, WorkObject } from '../types';
 import { SPECIAL_LABELS, SPECIAL_OPTIONS, WEEKDAY_SHORT } from '../utils/constants';
 import { buildDateKey, getWeekdayIndexMondayFirst } from '../utils/date';
@@ -37,33 +37,30 @@ export const ScheduleTable = ({
     return allDates.includes(selectedDate) ? [selectedDate] : allDates;
   }, [allDates, selectedDate]);
 
-  const [selectionStart, setSelectionStart] = useState<{ row: number; col: number } | null>(null);
-  const [selectionEnd, setSelectionEnd] = useState<{ row: number; col: number } | null>(null);
   const [massValue, setMassValue] = useState<string>('SPECIAL:OFF');
+  const [bulkEmployee, setBulkEmployee] = useState<string>('ALL');
+  const [bulkFromDate, setBulkFromDate] = useState<string>(allDates[0] ?? '');
+  const [bulkToDate, setBulkToDate] = useState<string>(allDates[allDates.length - 1] ?? '');
 
-  const selectionBounds = useMemo(() => {
-    if (!selectionStart || !selectionEnd) return null;
-    return {
-      rowMin: Math.min(selectionStart.row, selectionEnd.row),
-      rowMax: Math.max(selectionStart.row, selectionEnd.row),
-      colMin: Math.min(selectionStart.col, selectionEnd.col),
-      colMax: Math.max(selectionStart.col, selectionEnd.col)
-    };
-  }, [selectionEnd, selectionStart]);
+  useEffect(() => {
+    setBulkFromDate(allDates[0] ?? '');
+    setBulkToDate(allDates[allDates.length - 1] ?? '');
+  }, [allDates]);
 
-  const isSelected = (row: number, col: number): boolean => {
-    if (!selectionBounds) return false;
-    return row >= selectionBounds.rowMin && row <= selectionBounds.rowMax && col >= selectionBounds.colMin && col <= selectionBounds.colMax;
-  };
+  const applyBulk = (): void => {
+    if (!setCellValue || !bulkFromDate || !bulkToDate) return;
+    const fromIndex = allDates.indexOf(bulkFromDate);
+    const toIndex = allDates.indexOf(bulkToDate);
+    if (fromIndex < 0 || toIndex < 0) return;
 
-  const applyToSelection = (): void => {
-    if (!selectionBounds || !setCellValue) return;
     const [type, value] = massValue.split(':') as ['OBJECT' | 'SPECIAL', string];
-    for (let r = selectionBounds.rowMin; r <= selectionBounds.rowMax; r += 1) {
-      for (let c = selectionBounds.colMin; c <= selectionBounds.colMax; c += 1) {
-        const employee = employees[r];
-        const date = dates[c];
-        if (!employee || !date) continue;
+    const [start, end] = fromIndex <= toIndex ? [fromIndex, toIndex] : [toIndex, fromIndex];
+    const targetEmployees = bulkEmployee === 'ALL' ? employees : employees.filter((employee) => employee.id === bulkEmployee);
+
+    for (const employee of targetEmployees) {
+      for (let index = start; index <= end; index += 1) {
+        const date = allDates[index];
+        if (!date) continue;
         if (type === 'OBJECT') {
           setCellValue(employee.id, date, { type: 'OBJECT', value });
         } else {
@@ -73,13 +70,18 @@ export const ScheduleTable = ({
     }
   };
 
-  const clearSelection = (): void => {
-    if (!selectionBounds || !clearCellValue) return;
-    for (let r = selectionBounds.rowMin; r <= selectionBounds.rowMax; r += 1) {
-      for (let c = selectionBounds.colMin; c <= selectionBounds.colMax; c += 1) {
-        const employee = employees[r];
-        const date = dates[c];
-        if (!employee || !date) continue;
+  const clearBulk = (): void => {
+    if (!clearCellValue || !bulkFromDate || !bulkToDate) return;
+    const fromIndex = allDates.indexOf(bulkFromDate);
+    const toIndex = allDates.indexOf(bulkToDate);
+    if (fromIndex < 0 || toIndex < 0) return;
+    const [start, end] = fromIndex <= toIndex ? [fromIndex, toIndex] : [toIndex, fromIndex];
+    const targetEmployees = bulkEmployee === 'ALL' ? employees : employees.filter((employee) => employee.id === bulkEmployee);
+
+    for (const employee of targetEmployees) {
+      for (let index = start; index <= end; index += 1) {
+        const date = allDates[index];
+        if (!date) continue;
         clearCellValue(employee.id, date);
       }
     }
@@ -88,28 +90,43 @@ export const ScheduleTable = ({
   return (
     <div>
       {!readOnly && (
-        <div className="toolbar-row">
-          <select value={massValue} onChange={(event) => setMassValue(event.target.value)}>
-            {objects
-              .filter((item) => item.active)
-              .map((objectItem) => (
-                <option key={objectItem.id} value={`OBJECT:${objectItem.id}`}>
-                  Объект: {objectItem.short_ru || objectItem.name_ru}
+        <>
+          <div className="notice">
+            <strong>Пакетное редактирование (без выделения мышью):</strong> выберите механика, диапазон дат и значение.
+          </div>
+          <div className="toolbar-row bulk-edit-row">
+            <select value={bulkEmployee} onChange={(event) => setBulkEmployee(event.target.value)}>
+              <option value="ALL">Все механики</option>
+              {employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.full_name}
                 </option>
               ))}
-            {SPECIAL_OPTIONS.map((option) => (
-              <option key={option.value} value={`SPECIAL:${option.value}`}>
-                {option.description} ({option.label})
-              </option>
-            ))}
-          </select>
-          <button type="button" onClick={applyToSelection}>
-            Проставить выбранное
-          </button>
-          <button type="button" onClick={clearSelection}>
-            Очистить выделенное
-          </button>
-        </div>
+            </select>
+            <input type="date" value={bulkFromDate} onChange={(event) => setBulkFromDate(event.target.value)} />
+            <input type="date" value={bulkToDate} onChange={(event) => setBulkToDate(event.target.value)} />
+            <select value={massValue} onChange={(event) => setMassValue(event.target.value)}>
+              {objects
+                .filter((item) => item.active)
+                .map((objectItem) => (
+                  <option key={objectItem.id} value={`OBJECT:${objectItem.id}`}>
+                    Объект: {objectItem.short_ru || objectItem.name_ru}
+                  </option>
+                ))}
+              {SPECIAL_OPTIONS.map((option) => (
+                <option key={option.value} value={`SPECIAL:${option.value}`}>
+                  {option.description} ({option.label})
+                </option>
+              ))}
+            </select>
+            <button type="button" onClick={applyBulk}>
+              Применить к диапазону
+            </button>
+            <button type="button" onClick={clearBulk}>
+              Очистить диапазон
+            </button>
+          </div>
+        </>
       )}
 
       <div className="table-wrap">
@@ -131,22 +148,16 @@ export const ScheduleTable = ({
             </tr>
           </thead>
           <tbody>
-            {employees.map((employee, rowIndex) => (
+            {employees.map((employee) => (
               <tr key={employee.id}>
                 <td className="sticky-col">{employee.full_name}</td>
-                {dates.map((date, colIndex) => {
+                {dates.map((date) => {
                   const value = getCellValue(employee.id, date);
                   const objectName = value.type === 'OBJECT' ? objects.find((item) => item.id === value.value)?.short_ru ?? '—' : '';
                   const display = value.type === 'OBJECT' ? objectName : SPECIAL_LABELS[value.value];
 
                   return (
-                    <td
-                      key={date}
-                      className={isSelected(rowIndex, colIndex) ? 'selected' : ''}
-                      onMouseDown={() => !readOnly && setSelectionStart({ row: rowIndex, col: colIndex })}
-                      onMouseEnter={() => !readOnly && selectionStart && setSelectionEnd({ row: rowIndex, col: colIndex })}
-                      onMouseUp={() => !readOnly && setSelectionEnd({ row: rowIndex, col: colIndex })}
-                    >
+                    <td key={date}>
                       {readOnly ? (
                         <span>{display}</span>
                       ) : (

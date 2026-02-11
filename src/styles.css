@@ -176,12 +176,6 @@ button:active {
   font-weight: 600;
 }
 
-.selected {
-  outline: 2px solid var(--primary);
-  outline-offset: -2px;
-  background: var(--primary-soft) !important;
-}
-
 .schedule-table td select {
   width: 100%;
   min-width: 120px;
@@ -210,6 +204,37 @@ button:active {
 .simple-table th {
   background: #f6f9ff;
   color: #1e3a8a;
+}
+
+.bulk-edit-row {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+}
+
+.summary-grid {
+  margin: 14px 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.summary-card {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+
+.summary-card h3 {
+  margin-bottom: 8px;
+  font-size: 18px;
+}
+
+.summary-card ul {
+  margin: 0;
+  padding-left: 18px;
 }
 
 .notice-error {
@@ -248,5 +273,9 @@ button:active {
   .notice ul,
   .notice li {
     overflow-wrap: anywhere;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
   }
 }
