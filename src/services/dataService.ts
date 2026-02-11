@@ -14,6 +14,9 @@ const createId = (): string => {
 
 const createToken = (): string => Math.random().toString(36).slice(2, 12);
 
+const FIRESTORE_PUSH_RETRY_MS = 2000;
+const FIRESTORE_PULL_INTERVAL_MS = 5000;
+
 const defaultData: AppData = {
   admins: [{ id: SUPER_ADMIN_ID, name: 'Епиванов А В', password: 'admin2026', is_super: true }],
   employees: [
@@ -50,23 +53,86 @@ const ensureDataShape = (input: unknown): AppData => {
   };
 };
 
-const getFromStorage = (): AppData => {
-  runInitialRemotePull();
+const readLocalSnapshot = (): AppData | null => {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData));
-    return structuredClone(defaultData);
-  }
+  if (!raw) return null;
+
   try {
     return ensureDataShape(JSON.parse(raw));
   } catch {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData));
-    return structuredClone(defaultData);
+    return null;
   }
 };
 
-const setToStorage = (data: AppData): void => {
+const writeToLocalStorage = (data: AppData): void => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+};
+
+
+let lastSnapshotFingerprint = '';
+
+const computeSnapshotFingerprint = (data: AppData): string => JSON.stringify(data);
+
+const changeListeners = new Set<() => void>();
+
+const emitDataChanged = (): void => {
+  for (const listener of changeListeners) listener();
+};
+
+const updateLocalSnapshot = (data: AppData): void => {
+  writeToLocalStorage(data);
+  lastSnapshotFingerprint = computeSnapshotFingerprint(data);
+};
+
+const getFromStorage = (): AppData => {
+  runInitialRemotePull();
+  const snapshot = readLocalSnapshot();
+  if (snapshot) {
+    lastSnapshotFingerprint = computeSnapshotFingerprint(snapshot);
+    return snapshot;
+  }
+
+  updateLocalSnapshot(defaultData);
+  return structuredClone(defaultData);
+};
+
+let queuedRemoteSnapshot: AppData | null = null;
+let remotePushInFlight = false;
+let remotePushRetryTimer: ReturnType<typeof setTimeout> | undefined;
+let localMutationVersion = 0;
+
+const flushRemoteQueue = async (): Promise<void> => {
+  if (remotePushInFlight || !queuedRemoteSnapshot || !isFirebaseConfigured()) return;
+  remotePushInFlight = true;
+  const snapshot = queuedRemoteSnapshot;
+
+  try {
+    await pushAppDataToFirestore(firebaseConfig.projectId, firebaseConfig.apiKey, snapshot);
+    if (queuedRemoteSnapshot === snapshot) queuedRemoteSnapshot = null;
+  } catch {
+    if (remotePushRetryTimer === undefined) {
+      remotePushRetryTimer = globalThis.setTimeout(() => {
+        remotePushRetryTimer = undefined;
+        void flushRemoteQueue();
+      }, FIRESTORE_PUSH_RETRY_MS);
+    }
+  } finally {
+    remotePushInFlight = false;
+    if (queuedRemoteSnapshot) void flushRemoteQueue();
+  }
+};
+
+const syncToRemote = (data: AppData): void => {
+  if (!isFirebaseConfigured()) return;
+  queuedRemoteSnapshot = structuredClone(data);
+  void flushRemoteQueue();
+};
+
+const setToStorage = (data: AppData): void => {
+  updateLocalSnapshot(data);
+  localMutationVersion += 1;
+  syncToRemote(data);
+  emitDataChanged();
 };
 
 
@@ -76,11 +142,25 @@ const runInitialRemotePull = (): void => {
   if (remoteSyncStarted || !isFirebaseConfigured()) return;
   remoteSyncStarted = true;
 
+  const initialLocalData = readLocalSnapshot();
+  const mutationVersionAtStart = localMutationVersion;
+
   pullAppDataFromFirestore(firebaseConfig.projectId, firebaseConfig.apiKey)
     .then((remoteData) => {
-      if (!remoteData) return;
-      const normalized = ensureDataShape(remoteData);
-      setToStorage(normalized);
+      if (localMutationVersion !== mutationVersionAtStart) return;
+
+      if (remoteData) {
+        if (!initialLocalData) {
+          const normalized = ensureDataShape(remoteData);
+          updateLocalSnapshot(normalized);
+          emitDataChanged();
+        }
+        return;
+      }
+
+      if (!initialLocalData) {
+        syncToRemote(defaultData);
+      }
     })
     .catch(() => {
       // fallback to localStorage when Firestore is unreachable or rules deny access
@@ -259,8 +339,39 @@ const pullFromFirestore = async (): Promise<boolean> => {
   if (!isFirebaseConfigured()) return false;
   const remoteData = await pullAppDataFromFirestore(firebaseConfig.projectId, firebaseConfig.apiKey);
   if (!remoteData) return false;
-  setToStorage(ensureDataShape(remoteData));
+
+  const normalized = ensureDataShape(remoteData);
+  const nextFingerprint = computeSnapshotFingerprint(normalized);
+  if (nextFingerprint === lastSnapshotFingerprint) return false;
+
+  updateLocalSnapshot(normalized);
+  emitDataChanged();
   return true;
+};
+
+let realtimeSyncTimer: ReturnType<typeof setInterval> | undefined;
+
+const startRealtimeSync = (): void => {
+  if (realtimeSyncTimer || !isFirebaseConfigured()) return;
+
+  realtimeSyncTimer = globalThis.setInterval(() => {
+    void pullFromFirestore().catch(() => {
+      // keep local data when remote pull fails
+    });
+  }, FIRESTORE_PULL_INTERVAL_MS);
+};
+
+const stopRealtimeSync = (): void => {
+  if (!realtimeSyncTimer) return;
+  globalThis.clearInterval(realtimeSyncTimer);
+  realtimeSyncTimer = undefined;
+};
+
+const subscribeToChanges = (listener: () => void): (() => void) => {
+  changeListeners.add(listener);
+  return () => {
+    changeListeners.delete(listener);
+  };
 };
 
 const pushToFirestore = async (): Promise<void> => {
@@ -292,5 +403,8 @@ export const dataService = {
   getEntryKey,
   getVisibleEntryForEmployee,
   pullFromFirestore,
-  pushToFirestore
+  pushToFirestore,
+  startRealtimeSync,
+  stopRealtimeSync,
+  subscribeToChanges
 };
