@@ -22,7 +22,6 @@ export const MePage = (): JSX.Element => {
   const employeesByAdmin = dataService.getEmployeesByAdmin(selectedAdminId);
   const objectsByAdmin = dataService.getObjectsByAdmin(selectedAdminId);
 
-  const focusDay = dayFilter.trim() ? Number(dayFilter) : null;
 
   const visibleEmployees = useMemo(() => {
     const normalized = nameFilter.trim().toLocaleLowerCase('ru-RU');
@@ -62,12 +61,12 @@ export const MePage = (): JSX.Element => {
           ))}
         </select>
         <input
-          type="number"
-          min={1}
-          max={31}
+          type="date"
+          min={`2026-${String(month).padStart(2, '0')}-01`}
+          max={`2026-${String(month).padStart(2, '0')}-31`}
           value={dayFilter}
           onChange={(event) => setDayFilter(event.target.value)}
-          placeholder="День"
+          placeholder="Дата"
         />
         <button
           type="button"
@@ -95,7 +94,7 @@ export const MePage = (): JSX.Element => {
           employees={visibleEmployees}
           objects={objectsByAdmin}
           readOnly
-          focusDay={focusDay}
+          selectedDate={dayFilter || null}
           getCellValue={(employeeId, date) => {
             const entry = dataService.getVisibleEntryForEmployee(selectedAdminId, monthKey, employeeId, date);
             if (!entry) return { type: 'SPECIAL', value: 'OFF' } as const;

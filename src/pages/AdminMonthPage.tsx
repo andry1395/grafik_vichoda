@@ -61,12 +61,12 @@ export const AdminMonthPage = (): JSX.Element => {
           placeholder="Поиск сотрудника по имени"
         />
         <input
-          type="number"
-          min={1}
-          max={31}
+          type="date"
+          min={`2026-${String(month).padStart(2, '0')}-01`}
+          max={`2026-${String(month).padStart(2, '0')}-31`}
           value={dayFilter}
           onChange={(event) => setDayFilter(event.target.value)}
-          placeholder="День"
+          placeholder="Дата"
         />
         <button type="button" onClick={() => rerender('Сохранено')}>
           Сохранить
@@ -115,7 +115,7 @@ export const AdminMonthPage = (): JSX.Element => {
         month={month}
         employees={employees}
         objects={objects}
-        focusDay={dayFilter.trim() ? Number(dayFilter) : null}
+        selectedDate={dayFilter || null}
         getCellValue={(employeeId, date) => dataService.getCellValue(selectedAdminId, monthKey, employeeId, date)}
         setCellValue={(employeeId, date, value) => {
           if (value.type === 'OBJECT') {
