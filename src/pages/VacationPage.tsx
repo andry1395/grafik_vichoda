@@ -5,6 +5,13 @@ import { MONTHS_2026 } from '../utils/constants';
 import { formatDateDmy } from '../utils/date';
 import { countVacationDaysByLaborCode, validateVacationPartByLaborCode } from '../utils/vacation';
 
+const getYearFromDate = (isoDate: string): number => Number(isoDate.slice(0, 4));
+const getMonthFromMonthKey = (monthKey: string): number => Number(monthKey.slice(5, 7));
+
+const rangesOverlap = (leftStart: string, leftEnd: string, rightStart: string, rightEnd: string): boolean => {
+  return leftStart <= rightEnd && rightStart <= leftEnd;
+};
+
 export const VacationPage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
   const [employeeId, setEmployeeId] = useState('');
@@ -12,6 +19,9 @@ export const VacationPage = (): JSX.Element => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [notice, setNotice] = useState('');
+  const [yearFilter, setYearFilter] = useState<string>('all');
+  const [monthFilter, setMonthFilter] = useState<string>('all');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const monthKey = `2026-${String(month).padStart(2, '0')}`;
   const employees = useMemo(
@@ -19,17 +29,61 @@ export const VacationPage = (): JSX.Element => {
     [selectedAdminId]
   );
   const employee = useMemo(() => employees.find((employeeItem) => employeeItem.id === employeeId) ?? null, [employeeId, employees]);
-  const existingRequests = employee
-    ? dataService
+  const employeeById = useMemo(() => new Map(employees.map((item) => [item.id, item.full_name])), [employees]);
+
+  const allRequests = useMemo(
+    () =>
+      dataService
         .getVacationRequestsByAdmin(selectedAdminId)
+        .map((request) => ({ ...request, employeeName: employeeById.get(request.employee_id) ?? 'Сотрудник удален' })),
+    [employeeById, selectedAdminId]
+  );
+
+  const existingRequests = employee
+    ? allRequests
         .filter((item) => item.employee_id === employee.id)
         .sort((left, right) => left.start_date.localeCompare(right.start_date))
     : [];
-  const usedDays = employee
-    ? existingRequests.map((item) => item.vacation_days)
-    : [];
+
+  const usedDays = employee ? existingRequests.map((item) => item.vacation_days) : [];
   const totalUsedDays = usedDays.reduce((sum, value) => sum + value, 0);
   const remainingDays = Math.max(0, 28 - totalUsedDays);
+
+  const years = useMemo(() => {
+    const uniqueYears = Array.from(new Set(allRequests.map((request) => getYearFromDate(request.start_date))));
+    return uniqueYears.sort((left, right) => left - right);
+  }, [allRequests]);
+
+  const filteredRequests = useMemo(() => {
+    return allRequests
+      .filter((request) => {
+        const requestYear = getYearFromDate(request.start_date);
+        const requestMonth = getMonthFromMonthKey(request.month_key);
+        const yearMatch = yearFilter === 'all' || requestYear === Number(yearFilter);
+        const monthMatch = monthFilter === 'all' || requestMonth === Number(monthFilter);
+        return yearMatch && monthMatch;
+      })
+      .sort((left, right) => {
+        const cmp = left.start_date.localeCompare(right.start_date);
+        return sortDirection === 'asc' ? cmp : -cmp;
+      });
+  }, [allRequests, monthFilter, sortDirection, yearFilter]);
+
+  const overlappingRequestIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (let i = 0; i < filteredRequests.length; i += 1) {
+      for (let j = i + 1; j < filteredRequests.length; j += 1) {
+        const left = filteredRequests[i];
+        const right = filteredRequests[j];
+        if (left.employee_id === right.employee_id) continue;
+        if (rangesOverlap(left.start_date, left.end_date, right.start_date, right.end_date)) {
+          ids.add(left.id);
+          ids.add(right.id);
+        }
+      }
+    }
+    return ids;
+  }, [filteredRequests]);
 
   const calculatedDays = startDate && endDate ? countVacationDaysByLaborCode(startDate, endDate) : 0;
   const endDateHoverTitle =
@@ -119,6 +173,67 @@ export const VacationPage = (): JSX.Element => {
       )}
 
       {employee && remainingDays === 0 && <div className="notice">Лимит 28 дней уже полностью использован.</div>}
+
+      <h2>Таблица отпусков всех сотрудников</h2>
+      <div className="toolbar-row">
+        <select value={yearFilter} onChange={(event) => setYearFilter(event.target.value)}>
+          <option value="all">Все годы</option>
+          {years.map((year) => (
+            <option key={year} value={String(year)}>
+              {year}
+            </option>
+          ))}
+        </select>
+        <select value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)}>
+          <option value="all">Все месяцы</option>
+          {MONTHS_2026.map((value) => (
+            <option key={value} value={String(value)}>
+              {String(value).padStart(2, '0')}
+            </option>
+          ))}
+        </select>
+        <select value={sortDirection} onChange={(event) => setSortDirection(event.target.value as 'asc' | 'desc')}>
+          <option value="asc">Сортировка: сначала ранние</option>
+          <option value="desc">Сортировка: сначала поздние</option>
+        </select>
+      </div>
+
+      <table className="simple-table">
+        <thead>
+          <tr>
+            <th>Сотрудник</th>
+            <th>Год</th>
+            <th>Месяц</th>
+            <th>Период</th>
+            <th>Дней к оплате</th>
+            <th>Пересечения</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredRequests.map((request) => {
+            const monthNumber = getMonthFromMonthKey(request.month_key);
+            const yearNumber = getYearFromDate(request.start_date);
+            const hasOverlap = overlappingRequestIds.has(request.id);
+            return (
+              <tr key={request.id} className={hasOverlap ? 'vacation-overlap-row' : undefined}>
+                <td>{request.employeeName}</td>
+                <td>{yearNumber}</td>
+                <td>{String(monthNumber).padStart(2, '0')}</td>
+                <td>
+                  {formatDateDmy(request.start_date)} — {formatDateDmy(request.end_date)}
+                </td>
+                <td>{request.vacation_days}</td>
+                <td>{hasOverlap ? 'Есть пересечение' : '—'}</td>
+              </tr>
+            );
+          })}
+          {filteredRequests.length === 0 && (
+            <tr>
+              <td colSpan={6}>По выбранной сортировке/фильтрам отпусков нет.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
 
       {!!calculatedDays && <p>К расчету пойдет: {calculatedDays} дн. (праздничные дни не включаются, ст. 120 ТК РФ).</p>}
       {notice && <div className="notice">{notice}</div>}
