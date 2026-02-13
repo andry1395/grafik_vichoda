@@ -72,19 +72,85 @@ src/
    ```
 3. Открыть URL из терминала (обычно `http://localhost:5173`).
 
+### Для совсем начинающих (как пятилетнему)
+
+Если очень просто: проект — это «папка с сайтом». Чтобы он заработал у тебя, нужно:
+
+1. **Скачать проект с GitHub на компьютер** (да, нужно).
+   - Вариант A (проще): нажать на GitHub кнопку **Code → Download ZIP**, распаковать архив.
+   - Вариант B (правильнее для разработчика): через git:
+     ```bash
+     git clone https://github.com/andry1395/grafik_vichoda.git
+     cd grafik_vichoda
+     ```
+
+2. **Установить Node.js** (если его нет).
+   - Сайт: https://nodejs.org
+   - Поставь LTS-версию.
+
+3. **Открыть терминал в папке проекта**.
+   - Windows: открой папку проекта → в адресной строке проводника напиши `cmd` и Enter.
+   - Mac: открой Terminal и перейди в папку командой `cd`.
+
+4. **Вставить команды по очереди** (прямо в терминал):
+   ```bash
+   npm install
+   npm run dev
+   ```
+   - `npm install` — скачает «детали», без них сайт не собирается.
+   - `npm run dev` — запустит сайт локально.
+
+5. **Открыть ссылку из терминала**.
+   - Обычно это `http://localhost:5173`.
+   - Скопируй ссылку в браузер (Chrome/Edge/Firefox).
+
+6. **Остановить сайт** (когда закончил).
+   - Вернись в терминал и нажми `Ctrl + C`.
+
+Если нужна именно **онлайн-версия для всех**, смотри раздел ниже про GitHub Pages — там публикация в интернет через папку `dist`.
+
 
 ## Подключение Firebase (подготовка к переносу с localStorage)
 
-1. Скопируйте шаблон переменных окружения:
+1. Создайте локальный env-файл:
    ```bash
-   cp .env.example .env.local
+   npm run setup:env
    ```
-2. Значения в `.env.example` уже заполнены вашим `firebaseConfig` (при необходимости обновите).
-3. Убедитесь, что в Firebase включены:
+   > `.env.local` **не хранится в репозитории** (он в `.gitignore`), поэтому это нормально, что его нет в git.
+2. Проверьте, что `.env.local` заполнен:
+   ```bash
+   npm run check:firebase-env
+   ```
+3. Значения в `.env.example` уже заполнены вашим `firebaseConfig` (при необходимости обновите).
+4. Убедитесь, что в Firebase включены:
    - Firestore Database
    - Authentication → Email/Password
-4. В проект добавлен модуль `src/services/firebase.ts` с `firebaseConfig` и проверкой `isFirebaseConfigured()`.
-5. После настройки переменных приложение автоматически работает в режиме Firestore-first (с локальным fallback).
+5. В проект добавлен модуль `src/services/firebase.ts` с `firebaseConfig` и проверкой `isFirebaseConfigured()`.
+6. После настройки переменных приложение автоматически работает в режиме Firestore-first (с локальным fallback).
+
+### Если данные не уходят в Firebase (быстрый чек-лист)
+
+1. Создан ли файл `.env.local` (если нет — `npm run setup:env`).
+2. Запустите проверку: `npm run check:firebase-env`.
+3. После изменения `.env.local` **перезапустите** `npm run dev`.
+4. Откройте страницу `/admin/sync` и убедитесь, что в check-list все поля Firebase помечены как `✅`.
+5. Проверьте Firestore Rules. Если получаете `PERMISSION_DENIED`, значит правила не разрешают запись.
+   Для проверки можно временно (только на тест) открыть доступ:
+   ```text
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /{document=**} {
+         allow read, write: if true;
+       }
+     }
+   }
+   ```
+   ⚠️ После проверки обязательно закройте правила под вашу модель доступа.
+6. Проверьте, что документ создается/обновляется по пути `appData/main` в Firestore.
+
+7. В Firebase Console → Firestore Database → Rules вставьте правила из файла репозитория:
+   - `firebase.firestore.rules`
 
 Сейчас включен режим **Firestore-first с локальным fallback**:
 - при старте приложения выполняется `pullFromFirestore()`: UI загружается после попытки получить актуальный snapshot из Firestore (`appData/main`);
