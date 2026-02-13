@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "ci:verify": "npm run typecheck && npm run build"
+    "ci:verify": "npm run check:data-service && npm run typecheck && npm run build",
+    "check:data-service": "node scripts/check-dataService-duplicates.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
