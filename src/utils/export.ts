@@ -1,6 +1,6 @@
 import type { Employee, SpecialValue, WorkObject } from '../types';
 import { SPECIAL_LABELS, WEEKDAY_SHORT } from './constants';
-import { buildDateKey, daysInMonth, getWeekdayIndexMondayFirst } from './date';
+import { buildDateKey, daysInMonth, formatDateDmy, getWeekdayIndexMondayFirst } from './date';
 
 interface ExportParams {
   year: number;
@@ -71,8 +71,8 @@ export const exportVacationsToCsv = (rows: VacationExportRow[], adminId: string)
       [
         row.employeeName,
         row.monthKey,
-        row.startDate,
-        row.endDate,
+        formatDateDmy(row.startDate),
+        formatDateDmy(row.endDate),
         String(row.vacationDays),
         row.source === 'employee' ? 'Сотрудник' : 'Админ'
       ]
