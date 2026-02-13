@@ -9,6 +9,12 @@ export const formatDateRu = (isoDate: string): string => {
   return new Intl.DateTimeFormat('ru-RU').format(date);
 };
 
+export const formatDateDmy = (isoDate: string): string => {
+  const [year, month, day] = isoDate.split('-');
+  if (!year || !month || !day) return isoDate;
+  return `${day}-${month}-${year}`;
+};
+
 export const daysInMonth = (year: number, month: number): number => {
   return new Date(year, month, 0).getDate();
 };

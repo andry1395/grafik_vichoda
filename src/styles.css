@@ -279,3 +279,9 @@ button:active {
     grid-template-columns: 1fr;
   }
 }
+
+
+.vacation-overlap-row td {
+  background: #fee2e2;
+  color: #991b1b;
+}
