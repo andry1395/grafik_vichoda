@@ -6,6 +6,7 @@ import { AdminsPage } from './pages/AdminsPage';
 import { EmployeesPage } from './pages/EmployeesPage';
 import { MePage } from './pages/MePage';
 import { ObjectsPage } from './pages/ObjectsPage';
+import { SyncDebugPage } from './pages/SyncDebugPage';
 import { dataService } from './services/dataService';
 import { getAdminSessionId, getSelectedAdminId, setAdminSessionId } from './utils/adminAuth';
 
@@ -101,6 +102,14 @@ export const App = (): JSX.Element => {
           element={
             <AdminGate>
               <ObjectsPage />
+            </AdminGate>
+          }
+        />
+        <Route
+          path="/admin/sync"
+          element={
+            <AdminGate>
+              <SyncDebugPage />
             </AdminGate>
           }
         />

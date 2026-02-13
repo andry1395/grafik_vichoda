@@ -113,6 +113,9 @@ export const Layout = (): JSX.Element => {
             <NavLink to="/admin/admins" onClick={closeSidebarOnMobile}>
               Админы
             </NavLink>
+            <NavLink to="/admin/sync" onClick={closeSidebarOnMobile}>
+              Диагностика Firebase
+            </NavLink>
           </div>
         </nav>
       </aside>
