@@ -26,6 +26,12 @@ export const ScheduleTable = ({
   setCellValue,
   clearCellValue
 }: ScheduleTableProps): JSX.Element => {
+  const ROTATION_OPTIONS = [
+    { value: '5/2', workDays: 5, offDays: 2 },
+    { value: '4/2', workDays: 4, offDays: 2 },
+    { value: '4/3', workDays: 4, offDays: 3 }
+  ] as const;
+
   const dayCount = new Date(year, month, 0).getDate();
   const allDates = useMemo(
     () => Array.from({ length: dayCount }, (_, idx) => buildDateKey(year, month, idx + 1)),
@@ -41,10 +47,13 @@ export const ScheduleTable = ({
   const [bulkEmployee, setBulkEmployee] = useState<string>('ALL');
   const [bulkFromDate, setBulkFromDate] = useState<string>(allDates[0] ?? '');
   const [bulkToDate, setBulkToDate] = useState<string>(allDates[allDates.length - 1] ?? '');
+  const [rotationStartDate, setRotationStartDate] = useState<string>(allDates[0] ?? '');
+  const [rotationMode, setRotationMode] = useState<(typeof ROTATION_OPTIONS)[number]['value']>('5/2');
 
   useEffect(() => {
     setBulkFromDate(allDates[0] ?? '');
     setBulkToDate(allDates[allDates.length - 1] ?? '');
+    setRotationStartDate(allDates[0] ?? '');
   }, [allDates]);
 
   const applyBulk = (): void => {
@@ -87,6 +96,29 @@ export const ScheduleTable = ({
     }
   };
 
+  const applyOffRotation = (): void => {
+    if (!setCellValue || !rotationStartDate) return;
+    const startIndex = allDates.indexOf(rotationStartDate);
+    if (startIndex < 0) return;
+
+    const selectedRotation = ROTATION_OPTIONS.find((option) => option.value === rotationMode);
+    if (!selectedRotation) return;
+
+    const cycleLength = selectedRotation.workDays + selectedRotation.offDays;
+    const targetEmployees = bulkEmployee === 'ALL' ? employees : employees.filter((employee) => employee.id === bulkEmployee);
+
+    for (const employee of targetEmployees) {
+      for (let index = startIndex; index < allDates.length; index += 1) {
+        const date = allDates[index];
+        if (!date) continue;
+        const dayInCycle = (index - startIndex) % cycleLength;
+        if (dayInCycle >= selectedRotation.workDays) {
+          setCellValue(employee.id, date, { type: 'SPECIAL', value: 'OFF' });
+        }
+      }
+    }
+  };
+
   return (
     <div>
       {!readOnly && (
@@ -124,6 +156,20 @@ export const ScheduleTable = ({
             </button>
             <button type="button" onClick={clearBulk}>
               Очистить диапазон
+            </button>
+          </div>
+          <div className="toolbar-row bulk-edit-row">
+            <strong>Чередование выходных:</strong>
+            <input type="date" value={rotationStartDate} onChange={(event) => setRotationStartDate(event.target.value)} />
+            <select value={rotationMode} onChange={(event) => setRotationMode(event.target.value as (typeof ROTATION_OPTIONS)[number]['value'])}>
+              {ROTATION_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.value}
+                </option>
+              ))}
+            </select>
+            <button type="button" onClick={applyOffRotation}>
+              Применить чередование
             </button>
           </div>
         </>
