@@ -112,10 +112,11 @@ src/
 
 ## Подключение Firebase (подготовка к переносу с localStorage)
 
-1. Скопируйте шаблон переменных окружения:
+1. Создайте локальный env-файл:
    ```bash
-   cp .env.example .env.local
+   npm run setup:env
    ```
+   > `.env.local` **не хранится в репозитории** (он в `.gitignore`), поэтому это нормально, что его нет в git.
 2. Проверьте, что `.env.local` заполнен:
    ```bash
    npm run check:firebase-env
@@ -129,7 +130,7 @@ src/
 
 ### Если данные не уходят в Firebase (быстрый чек-лист)
 
-1. Создан ли файл `.env.local` (а не только `.env.example`).
+1. Создан ли файл `.env.local` (если нет — `npm run setup:env`).
 2. Запустите проверку: `npm run check:firebase-env`.
 3. После изменения `.env.local` **перезапустите** `npm run dev`.
 4. Откройте страницу `/admin/sync` и убедитесь, что в check-list все поля Firebase помечены как `✅`.
