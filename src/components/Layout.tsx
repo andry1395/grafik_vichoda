@@ -92,6 +92,9 @@ export const Layout = (): JSX.Element => {
             <NavLink to="/viewer" onClick={closeSidebarOnMobile}>
               Просмотр графиков
             </NavLink>
+            <NavLink to="/vacation" onClick={closeSidebarOnMobile}>
+              Мой отпуск
+            </NavLink>
           </div>
 
           <h3>Администрирование</h3>
@@ -109,6 +112,9 @@ export const Layout = (): JSX.Element => {
             </NavLink>
             <NavLink to="/admin/objects" onClick={closeSidebarOnMobile}>
               Объекты
+            </NavLink>
+            <NavLink to="/admin/vacations" onClick={closeSidebarOnMobile}>
+              Отпуска
             </NavLink>
             <NavLink to="/admin/admins" onClick={closeSidebarOnMobile}>
               Админы

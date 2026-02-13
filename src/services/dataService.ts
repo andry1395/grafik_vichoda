@@ -1,4 +1,4 @@
-import type { AdminUser, AppData, Employee, MonthData, ScheduleEntry, SpecialValue, WorkObject } from '../types';
+import type { AdminUser, AppData, Employee, MonthData, ScheduleEntry, SpecialValue, VacationRequest, WorkObject } from '../types';
 import { firebaseConfig, isFirebaseConfigured } from './firebase';
 import { pullAppDataFromFirestore, pushAppDataToFirestore } from './firestoreRest';
 
@@ -33,7 +33,8 @@ const defaultData: AppData = {
     { id: createId(), admin_id: SUPER_ADMIN_ID, name_ru: 'Объект Север', short_ru: 'Север', active: true },
     { id: createId(), admin_id: SUPER_ADMIN_ID, name_ru: 'Объект Юг', short_ru: 'Юг', active: true }
   ],
-  months: {}
+  months: {},
+  vacation_requests: []
 };
 
 const sanitizeEntry = (entry: ScheduleEntry): ScheduleEntry => {
@@ -55,7 +56,10 @@ const ensureDataShape = (input: unknown): AppData => {
     objects: Array.isArray(maybe.objects)
       ? maybe.objects.map((objectItem) => ({ ...objectItem, admin_id: objectItem.admin_id ?? SUPER_ADMIN_ID }))
       : [],
-    months: maybe.months && typeof maybe.months === 'object' ? maybe.months : {}
+    months: maybe.months && typeof maybe.months === 'object' ? maybe.months : {},
+    vacation_requests: Array.isArray(maybe.vacation_requests)
+      ? maybe.vacation_requests.map((request) => ({ ...request, admin_id: request.admin_id ?? SUPER_ADMIN_ID }))
+      : []
   };
 };
 
@@ -201,6 +205,7 @@ const removeAdmin = (adminId: string): void => {
   data.admins = data.admins.filter((admin) => admin.id !== adminId);
   data.employees = data.employees.filter((employee) => employee.admin_id !== adminId);
   data.objects = data.objects.filter((objectItem) => objectItem.admin_id !== adminId);
+  data.vacation_requests = data.vacation_requests.filter((request) => request.admin_id !== adminId);
   for (const key of Object.keys(data.months)) {
     if (key.startsWith(`${adminId}__`)) delete data.months[key];
   }
@@ -259,6 +264,7 @@ const upsertObject = (payload: Omit<WorkObject, 'id'> & { id?: string; admin_id:
 const removeEmployee = (employeeId: string): void => {
   const data = getFromStorage();
   data.employees = data.employees.filter((employee) => employee.id !== employeeId);
+  data.vacation_requests = data.vacation_requests.filter((request) => request.employee_id !== employeeId);
   for (const month of Object.values(data.months)) {
     for (const entryKey of Object.keys(month.entries)) {
       if (entryKey.startsWith(`${employeeId}_`)) delete month.entries[entryKey];
@@ -356,6 +362,59 @@ const pullFromFirestore = async (): Promise<boolean> => {
   return true;
 };
 
+const getEmployeeByToken = (adminId: string, token: string): Employee | null => {
+  const normalizedToken = token.trim();
+  if (!normalizedToken) return null;
+  return getFromStorage().employees.find((employee) => employee.admin_id === adminId && employee.active && employee.token === normalizedToken) ?? null;
+};
+
+const getVacationRequestsByAdmin = (adminId: string): VacationRequest[] =>
+  getFromStorage()
+    .vacation_requests.filter((request) => request.admin_id === adminId)
+    .sort((left, right) => left.start_date.localeCompare(right.start_date));
+
+const getVacationRequestByEmployeeAndMonth = (adminId: string, employeeId: string, monthKey: string): VacationRequest | null =>
+  getFromStorage().vacation_requests.find(
+    (request) => request.admin_id === adminId && request.employee_id === employeeId && request.month_key === monthKey
+  ) ?? null;
+
+const createVacationRequest = (payload: {
+  admin_id: string;
+  employee_id: string;
+  month_key: string;
+  start_date: string;
+  end_date: string;
+  vacation_days: number;
+  created_by: 'employee' | 'admin';
+}): VacationRequest => {
+  const data = getFromStorage();
+  const request: VacationRequest = {
+    id: createId(),
+    ...payload,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  data.vacation_requests.push(request);
+  setToStorage(data);
+  return request;
+};
+
+const updateVacationRequest = (
+  requestId: string,
+  payload: Pick<VacationRequest, 'start_date' | 'end_date' | 'vacation_days'> & { updatedBy: 'admin' }
+): VacationRequest | null => {
+  const data = getFromStorage();
+  const request = data.vacation_requests.find((item) => item.id === requestId);
+  if (!request) return null;
+  request.start_date = payload.start_date;
+  request.end_date = payload.end_date;
+  request.vacation_days = payload.vacation_days;
+  request.updated_at = new Date().toISOString();
+  request.created_by = payload.updatedBy;
+  setToStorage(data);
+  return request;
+};
+
 let realtimeSyncTimer: ReturnType<typeof setInterval> | undefined;
 let realtimeSyncEventHandler: (() => void) | undefined;
 
@@ -433,6 +492,11 @@ export const dataService = {
   getCellValue,
   getEntryKey,
   getVisibleEntryForEmployee,
+  getEmployeeByToken,
+  getVacationRequestsByAdmin,
+  getVacationRequestByEmployeeAndMonth,
+  createVacationRequest,
+  updateVacationRequest,
   pullFromFirestore,
   pushToFirestore,
   startRealtimeSync,
