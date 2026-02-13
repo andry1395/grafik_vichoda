@@ -10,6 +10,15 @@ interface ExportParams {
   getCellValue: (employeeId: string, date: string) => { type: 'OBJECT'; value: string } | { type: 'SPECIAL'; value: SpecialValue };
 }
 
+interface VacationExportRow {
+  employeeName: string;
+  monthKey: string;
+  startDate: string;
+  endDate: string;
+  vacationDays: number;
+  source: 'employee' | 'admin';
+}
+
 const escapeCell = (value: string): string => `"${value.split("\"").join("\"\"")}"`;
 
 const monthName = (month: number): string => String(month).padStart(2, '0');
@@ -49,6 +58,35 @@ export const exportMonthToXlsx = ({ year, month, employees, objects, getCellValu
   const link = document.createElement('a');
   link.href = url;
   link.download = `grafik-${year}-${monthName(month)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+export const exportVacationsToCsv = (rows: VacationExportRow[], adminId: string): void => {
+  const headers = ['Сотрудник', 'Месяц', 'Начало отпуска', 'Конец отпуска', 'Дней к оплате', 'Источник'];
+  const lines: string[] = [headers.map(escapeCell).join(';')];
+
+  for (const row of rows) {
+    lines.push(
+      [
+        row.employeeName,
+        row.monthKey,
+        row.startDate,
+        row.endDate,
+        String(row.vacationDays),
+        row.source === 'employee' ? 'Сотрудник' : 'Админ'
+      ]
+        .map(escapeCell)
+        .join(';')
+    );
+  }
+
+  const csv = `\uFEFF${lines.join('\n')}`;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `vacations-${adminId}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 };
