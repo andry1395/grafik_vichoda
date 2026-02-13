@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { ScheduleTable } from '../components/ScheduleTable';
 import { dataService } from '../services/dataService';
 import type { SpecialValue } from '../types';
-import { buildDateKey, daysInMonth } from '../utils/date';
+import { buildDateKey, daysInMonth, formatDateDmy } from '../utils/date';
 import { exportMonthToXlsx } from '../utils/export';
 import { coverageIssueToText, getCoverageIssues } from '../utils/coverage';
 import { getSelectedAdminId } from '../utils/adminAuth';
@@ -91,7 +91,7 @@ export const AdminMonthPage = (): JSX.Element => {
           <ul>
             {vacationRequestsInMonth.map((request) => (
               <li key={request.id}>
-                {request.employeeName}: {request.start_date} — {request.end_date} ({request.vacation_days} дн.)
+                {request.employeeName}: {formatDateDmy(request.start_date)} — {formatDateDmy(request.end_date)} ({request.vacation_days} дн.)
               </li>
             ))}
           </ul>

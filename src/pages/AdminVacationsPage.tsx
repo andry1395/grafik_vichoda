@@ -3,6 +3,7 @@ import { dataService } from '../services/dataService';
 import { getSelectedAdminId } from '../utils/adminAuth';
 import { countVacationDaysByLaborCode } from '../utils/vacation';
 import { exportVacationsToCsv } from '../utils/export';
+import { formatDateDmy } from '../utils/date';
 
 export const AdminVacationsPage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
@@ -95,7 +96,7 @@ export const AdminVacationsPage = (): JSX.Element => {
                       />
                     </div>
                   ) : (
-                    `${request.start_date} — ${request.end_date}`
+                    `${formatDateDmy(request.start_date)} — ${formatDateDmy(request.end_date)}`
                   )}
                 </td>
                 <td>{request.vacation_days}</td>

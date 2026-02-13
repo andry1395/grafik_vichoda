@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { dataService } from '../services/dataService';
 import { getSelectedAdminId } from '../utils/adminAuth';
 import { MONTHS_2026 } from '../utils/constants';
+import { formatDateDmy } from '../utils/date';
 import { countVacationDaysByLaborCode, validateVacationPartByLaborCode } from '../utils/vacation';
 
 export const VacationPage = (): JSX.Element => {
@@ -70,7 +71,7 @@ export const VacationPage = (): JSX.Element => {
       {employee &&
         existingRequests.map((request) => (
           <div key={request.id} className="notice">
-            Уже внесено: {request.start_date} — {request.end_date} ({request.vacation_days} дн.)
+            Уже внесено: {formatDateDmy(request.start_date)} — {formatDateDmy(request.end_date)} ({request.vacation_days} дн.)
           </div>
         ))}
 
