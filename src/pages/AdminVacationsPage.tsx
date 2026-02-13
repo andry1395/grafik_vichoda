@@ -128,18 +128,49 @@ export const AdminVacationsPage = (): JSX.Element => {
                       <button type="button" onClick={() => setEditingId(null)}>
                         Отмена
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const removed = dataService.removeVacationRequest(request.id);
+                          if (!removed) {
+                            setNotice('Не удалось удалить отпуск: запись не найдена.');
+                            return;
+                          }
+                          setEditingId(null);
+                          setNotice('Отпуск удален администратором.');
+                          setTick((value) => value + 1);
+                        }}
+                      >
+                        Удалить отпуск
+                      </button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingId(request.id);
-                        setStartDate(request.start_date);
-                        setEndDate(request.end_date);
-                      }}
-                    >
-                      Редактировать (админ)
-                    </button>
+                    <div className="toolbar-row">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(request.id);
+                          setStartDate(request.start_date);
+                          setEndDate(request.end_date);
+                        }}
+                      >
+                        Редактировать (админ)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const removed = dataService.removeVacationRequest(request.id);
+                          if (!removed) {
+                            setNotice('Не удалось удалить отпуск: запись не найдена.');
+                            return;
+                          }
+                          setNotice('Отпуск удален администратором.');
+                          setTick((value) => value + 1);
+                        }}
+                      >
+                        Удалить отпуск
+                      </button>
+                    </div>
                   )}
                 </td>
               </tr>
