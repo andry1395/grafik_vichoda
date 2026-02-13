@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { AdminMonthPage } from './pages/AdminMonthPage';
@@ -6,6 +6,7 @@ import { AdminsPage } from './pages/AdminsPage';
 import { EmployeesPage } from './pages/EmployeesPage';
 import { MePage } from './pages/MePage';
 import { ObjectsPage } from './pages/ObjectsPage';
+import { SyncDebugPage } from './pages/SyncDebugPage';
 import { dataService } from './services/dataService';
 import { getAdminSessionId, getSelectedAdminId, setAdminSessionId } from './utils/adminAuth';
 
@@ -65,6 +66,14 @@ const AdminGate = ({ children, superOnly = false }: { children: JSX.Element; sup
 };
 
 export const App = (): JSX.Element => {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    return dataService.subscribeToChanges(() => {
+      setTick((value) => value + 1);
+    });
+  }, []);
+
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/viewer" replace />} />
@@ -93,6 +102,14 @@ export const App = (): JSX.Element => {
           element={
             <AdminGate>
               <ObjectsPage />
+            </AdminGate>
+          }
+        />
+        <Route
+          path="/admin/sync"
+          element={
+            <AdminGate>
+              <SyncDebugPage />
             </AdminGate>
           }
         />
