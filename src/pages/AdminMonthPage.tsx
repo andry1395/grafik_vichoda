@@ -141,6 +141,24 @@ export const AdminMonthPage = (): JSX.Element => {
         <button
           type="button"
           onClick={() => {
+            const copied = dataService.extendMonthFromPrevious(
+              selectedAdminId,
+              monthKey,
+              activeEmployees.map((employee) => employee.id)
+            );
+            if (copied) {
+              rerender('График протянут из прошлого месяца');
+            } else {
+              setNotice('Нет данных за прошлый месяц для протяжки');
+              setTimeout(() => setNotice(''), 2200);
+            }
+          }}
+        >
+          Протянуть из прошлого месяца
+        </button>
+        <button
+          type="button"
+          onClick={() => {
             exportMonthToXlsx({
               year: 2026,
               month,

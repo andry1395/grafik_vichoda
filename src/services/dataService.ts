@@ -324,6 +324,74 @@ const publishMonth = (adminId: string, monthKey: string, dates: string[], employ
   setToStorage(data);
 };
 
+const extendMonthFromPrevious = (adminId: string, monthKey: string, employeeIds: string[]): boolean => {
+  const [yearPart, monthPart] = monthKey.split('-');
+  const year = Number(yearPart);
+  const month = Number(monthPart);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) return false;
+
+  const previousMonth = month === 1 ? 12 : month - 1;
+  const previousYear = month === 1 ? year - 1 : year;
+  const previousMonthKey = `${previousYear}-${String(previousMonth).padStart(2, '0')}`;
+
+  const data = getFromStorage();
+  const sourceStorageKey = monthStorageKey(adminId, previousMonthKey);
+  const sourceMonth = data.months[sourceStorageKey];
+  if (!sourceMonth) return false;
+
+  const targetStorageKey = monthStorageKey(adminId, monthKey);
+  if (!data.months[targetStorageKey]) data.months[targetStorageKey] = { status: 'draft', entries: {} };
+
+  const sourceDays = new Date(previousYear, previousMonth, 0).getDate();
+  const targetDays = new Date(year, month, 0).getDate();
+
+  const getWeekdayOccurrence = (y: number, m: number, day: number): number => {
+    const targetWeekday = new Date(y, m - 1, day).getDay();
+    let occurrence = 0;
+    for (let index = 1; index <= day; index += 1) {
+      if (new Date(y, m - 1, index).getDay() === targetWeekday) occurrence += 1;
+    }
+    return occurrence;
+  };
+
+  const findSourceDayByWeekday = (targetDay: number): number => {
+    const targetWeekday = new Date(year, month - 1, targetDay).getDay();
+    const occurrence = getWeekdayOccurrence(year, month, targetDay);
+    let found = 0;
+
+    for (let sourceDay = 1; sourceDay <= sourceDays; sourceDay += 1) {
+      if (new Date(previousYear, previousMonth - 1, sourceDay).getDay() !== targetWeekday) continue;
+      found += 1;
+      if (found === occurrence) return sourceDay;
+    }
+
+    for (let sourceDay = sourceDays; sourceDay >= 1; sourceDay -= 1) {
+      if (new Date(previousYear, previousMonth - 1, sourceDay).getDay() === targetWeekday) return sourceDay;
+    }
+
+    return ((targetDay - 1) % sourceDays) + 1;
+  };
+
+  for (const employeeId of employeeIds) {
+    for (let targetDay = 1; targetDay <= targetDays; targetDay += 1) {
+      const sourceDay = findSourceDayByWeekday(targetDay);
+      const sourceDate = `${previousMonthKey}-${String(sourceDay).padStart(2, '0')}`;
+      const targetDate = `${monthKey}-${String(targetDay).padStart(2, '0')}`;
+      const sourceEntry = sourceMonth.entries[getEntryKey(employeeId, sourceDate)];
+      const targetEntryKey = getEntryKey(employeeId, targetDate);
+
+      if (sourceEntry) {
+        data.months[targetStorageKey].entries[targetEntryKey] = sanitizeEntry(sourceEntry);
+      } else {
+        delete data.months[targetStorageKey].entries[targetEntryKey];
+      }
+    }
+  }
+
+  setToStorage(data);
+  return true;
+};
+
 const getVisibleEntryForEmployee = (adminId: string, monthKey: string, employeeId: string, date: string): ScheduleEntry | undefined => {
   const month = getMonth(adminId, monthKey);
   if (month.status !== 'published') return undefined;
@@ -498,6 +566,7 @@ export const dataService = {
   clearEntry,
   setMonthStatus,
   publishMonth,
+  extendMonthFromPrevious,
   getCellValue,
   getEntryKey,
   getVisibleEntryForEmployee,
