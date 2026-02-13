@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { MONTHS_2026 } from '../utils/constants';
 import { clearAdminSession, getSelectedAdminId, setSelectedAdminId } from '../utils/adminAuth';
@@ -9,6 +9,15 @@ export const Layout = (): JSX.Element => {
   const admins = dataService.getAdmins();
   const selectedAdminId = getSelectedAdminId();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const syncState = dataService.getSyncState();
+
+  const syncLabel = useMemo(() => {
+    if (!syncState.configured) return '⚠️ Firebase не настроен (работа только локально)';
+    if (syncState.lastError) return `⚠️ Ошибка синхронизации: ${syncState.lastError}`;
+    if (syncState.pendingPush) return '⏳ Изменения отправляются в БД...';
+    if (syncState.lastPushAt) return `✅ Синхронизировано: ${new Date(syncState.lastPushAt).toLocaleTimeString('ru-RU')}`;
+    return '⏳ Ожидание первой синхронизации';
+  }, [syncState.configured, syncState.lastError, syncState.pendingPush, syncState.lastPushAt]);
 
   useEffect(() => {
     if (window.matchMedia('(max-width: 900px)').matches) {
@@ -40,6 +49,7 @@ export const Layout = (): JSX.Element => {
         </Link>
 
         <div className="topbar-actions">
+          <span style={{ fontSize: '0.85rem', maxWidth: 360 }}>{syncLabel}</span>
           <label className="sr-only" htmlFor="admin-select">
             Выбор администратора
           </label>
