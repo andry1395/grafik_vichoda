@@ -124,7 +124,8 @@ const readPendingRemoteSnapshot = (): AppData | null => {
   if (!raw) return null;
 
   try {
-    return ensureDataShape(JSON.parse(raw));
+    await pushAppDataToFirestore(firebaseConfig.projectId, firebaseConfig.apiKey, snapshot);
+    if (queuedRemoteSnapshot === snapshot) queuedRemoteSnapshot = null;
   } catch {
     localStorage.removeItem(PENDING_REMOTE_SYNC_KEY);
     return null;
