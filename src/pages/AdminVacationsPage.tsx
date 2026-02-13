@@ -31,6 +31,12 @@ export const AdminVacationsPage = (): JSX.Element => {
     source: request.created_by
   }));
 
+  const editingVacationDays = startDate && endDate ? countVacationDaysByLaborCode(startDate, endDate) : 0;
+  const endDateHoverTitle =
+    startDate && endDate
+      ? `Расчет отпуска: ${editingVacationDays} дн. (праздничные дни не включаются)`
+      : 'Выберите дату начала и окончания, чтобы увидеть расчет дней отпуска';
+
   return (
     <section key={tick}>
       <h1>Отпуска сотрудников</h1>
@@ -80,7 +86,13 @@ export const AdminVacationsPage = (): JSX.Element => {
                   {isEditing ? (
                     <div className="toolbar-row">
                       <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-                      <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(event) => setEndDate(event.target.value)}
+                        title={endDateHoverTitle}
+                        aria-label="Дата окончания отпуска. Наведите курсор для подсказки по количеству дней"
+                      />
                     </div>
                   ) : (
                     `${request.start_date} — ${request.end_date}`

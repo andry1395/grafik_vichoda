@@ -7,6 +7,7 @@ import { buildDateKey, daysInMonth } from '../utils/date';
 import { exportMonthToXlsx } from '../utils/export';
 import { coverageIssueToText, getCoverageIssues } from '../utils/coverage';
 import { getSelectedAdminId } from '../utils/adminAuth';
+import { doesVacationIntersectMonth } from '../utils/vacation';
 
 export const AdminMonthPage = (): JSX.Element => {
   const params = useParams<{ month: string }>();
@@ -26,7 +27,7 @@ export const AdminMonthPage = (): JSX.Element => {
   const monthData = dataService.getMonth(selectedAdminId, monthKey);
   const vacationRequestsInMonth = dataService
     .getVacationRequestsByAdmin(selectedAdminId)
-    .filter((request) => request.month_key === monthKey)
+    .filter((request) => doesVacationIntersectMonth(request.start_date, request.end_date, monthKey))
     .map((request) => ({
       ...request,
       employeeName: activeEmployees.find((employee) => employee.id === request.employee_id)?.full_name ?? 'Сотрудник удален'

@@ -27,6 +27,20 @@ const toKey = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+export const doesVacationIntersectMonth = (startDate: string, endDate: string, monthKey: string): boolean => {
+  const start = toDate(startDate);
+  const end = toDate(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return false;
+
+  const [yearRaw, monthRaw] = monthKey.split('-').map(Number);
+  if (!yearRaw || !monthRaw) return false;
+
+  const monthStart = new Date(yearRaw, monthRaw - 1, 1);
+  const monthEnd = new Date(yearRaw, monthRaw, 0);
+
+  return start <= monthEnd && end >= monthStart;
+};
+
 export const isFederalHoliday = (date: string): boolean => FEDERAL_HOLIDAYS_2026.has(date);
 
 export const countVacationDaysByLaborCode = (startDate: string, endDate: string): number => {
