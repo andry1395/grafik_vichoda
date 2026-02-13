@@ -345,9 +345,36 @@ const extendMonthFromPrevious = (adminId: string, monthKey: string, employeeIds:
   const sourceDays = new Date(previousYear, previousMonth, 0).getDate();
   const targetDays = new Date(year, month, 0).getDate();
 
+  const getWeekdayOccurrence = (y: number, m: number, day: number): number => {
+    const targetWeekday = new Date(y, m - 1, day).getDay();
+    let occurrence = 0;
+    for (let index = 1; index <= day; index += 1) {
+      if (new Date(y, m - 1, index).getDay() === targetWeekday) occurrence += 1;
+    }
+    return occurrence;
+  };
+
+  const findSourceDayByWeekday = (targetDay: number): number => {
+    const targetWeekday = new Date(year, month - 1, targetDay).getDay();
+    const occurrence = getWeekdayOccurrence(year, month, targetDay);
+    let found = 0;
+
+    for (let sourceDay = 1; sourceDay <= sourceDays; sourceDay += 1) {
+      if (new Date(previousYear, previousMonth - 1, sourceDay).getDay() !== targetWeekday) continue;
+      found += 1;
+      if (found === occurrence) return sourceDay;
+    }
+
+    for (let sourceDay = sourceDays; sourceDay >= 1; sourceDay -= 1) {
+      if (new Date(previousYear, previousMonth - 1, sourceDay).getDay() === targetWeekday) return sourceDay;
+    }
+
+    return ((targetDay - 1) % sourceDays) + 1;
+  };
+
   for (const employeeId of employeeIds) {
     for (let targetDay = 1; targetDay <= targetDays; targetDay += 1) {
-      const sourceDay = ((targetDay - 1) % sourceDays) + 1;
+      const sourceDay = findSourceDayByWeekday(targetDay);
       const sourceDate = `${previousMonthKey}-${String(sourceDay).padStart(2, '0')}`;
       const targetDate = `${monthKey}-${String(targetDay).padStart(2, '0')}`;
       const sourceEntry = sourceMonth.entries[getEntryKey(employeeId, sourceDate)];
