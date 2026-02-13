@@ -98,11 +98,16 @@ src/
 
 ## Где лежат данные
 
-Все данные лежат в localStorage в ключе:
+Основное хранилище данных — **Firebase Firestore**:
 
-- `scheduleAppData`
+- документ: `appData/main`
 
-Структура соответствует формату:
+Локально в браузере данные тоже сохраняются, но как кэш/fallback:
+
+- `localStorage` ключ `scheduleAppData`
+- `localStorage` ключ `schedulePendingRemoteSnapshot` (буфер изменений, которые еще не ушли в Firestore)
+
+Структура snapshot (и в Firestore `appData/main.payload`, и в локальном кэше) соответствует формату:
 
 ```json
 {
