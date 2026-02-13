@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { dataService } from '../services/dataService';
 import { getSelectedAdminId } from '../utils/adminAuth';
 import { countVacationDaysByLaborCode } from '../utils/vacation';
+import { exportVacationsToCsv } from '../utils/export';
 
 export const AdminVacationsPage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
@@ -10,15 +11,51 @@ export const AdminVacationsPage = (): JSX.Element => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [tick, setTick] = useState(0);
+  const [employeeFilter, setEmployeeFilter] = useState('');
 
   const employees = dataService.getEmployeesByAdmin(selectedAdminId);
   const requests = dataService.getVacationRequestsByAdmin(selectedAdminId);
+  const employeeById = useMemo(() => new Map(employees.map((employee) => [employee.id, employee.full_name])), [employees]);
+
+  const filteredRequests = requests.filter((request) => {
+    if (!employeeFilter) return true;
+    return request.employee_id === employeeFilter;
+  });
+
+  const exportRows = filteredRequests.map((request) => ({
+    employeeName: employeeById.get(request.employee_id) ?? 'Сотрудник удален',
+    monthKey: request.month_key,
+    startDate: request.start_date,
+    endDate: request.end_date,
+    vacationDays: request.vacation_days,
+    source: request.created_by
+  }));
 
   return (
     <section key={tick}>
       <h1>Отпуска сотрудников</h1>
       <p>Таблица формируется только по сотрудникам текущего администратора.</p>
       {notice && <div className="notice">{notice}</div>}
+
+      <div className="toolbar-row">
+        <select value={employeeFilter} onChange={(event) => setEmployeeFilter(event.target.value)}>
+          <option value="">Все сотрудники</option>
+          {employees.map((employee) => (
+            <option key={employee.id} value={employee.id}>
+              {employee.full_name}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => {
+            exportVacationsToCsv(exportRows, selectedAdminId);
+            setNotice('Таблица отпусков выгружена в CSV.');
+          }}
+        >
+          Выгрузить таблицу отпусков (CSV)
+        </button>
+      </div>
 
       <table className="simple-table">
         <thead>
@@ -32,7 +69,7 @@ export const AdminVacationsPage = (): JSX.Element => {
           </tr>
         </thead>
         <tbody>
-          {requests.map((request) => {
+          {filteredRequests.map((request) => {
             const employee = employees.find((item) => item.id === request.employee_id);
             const isEditing = editingId === request.id;
             return (

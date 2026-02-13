@@ -31,6 +31,10 @@ export const VacationPage = (): JSX.Element => {
   const remainingDays = Math.max(0, 28 - totalUsedDays);
 
   const calculatedDays = startDate && endDate ? countVacationDaysByLaborCode(startDate, endDate) : 0;
+  const endDateHoverTitle =
+    startDate && endDate
+      ? `Расчет отпуска: ${calculatedDays} дн. (праздничные дни не включаются)`
+      : 'Выберите дату начала и окончания, чтобы увидеть расчет дней отпуска';
 
   return (
     <section>
@@ -73,7 +77,13 @@ export const VacationPage = (): JSX.Element => {
       {employee && remainingDays > 0 && (
         <div className="toolbar-row">
           <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-          <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(event) => setEndDate(event.target.value)}
+            title={endDateHoverTitle}
+            aria-label="Дата окончания отпуска. Наведите курсор для подсказки по количеству дней"
+          />
           <button
             type="button"
             onClick={() => {
