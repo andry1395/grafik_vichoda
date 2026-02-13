@@ -3,6 +3,11 @@ import type { Employee, SpecialValue, WorkObject } from '../types';
 import { SPECIAL_LABELS, SPECIAL_OPTIONS, WEEKDAY_SHORT } from '../utils/constants';
 import { buildDateKey, getWeekdayIndexMondayFirst } from '../utils/date';
 
+const parseDateToUtc = (value: string): number => {
+  const [yearPart, monthPart, dayPart] = value.split('-').map(Number);
+  return Date.UTC(yearPart, monthPart - 1, dayPart);
+};
+
 interface ScheduleTableProps {
   year: number;
   month: number;
@@ -26,7 +31,15 @@ export const ScheduleTable = ({
   setCellValue,
   clearCellValue
 }: ScheduleTableProps): JSX.Element => {
+  const ROTATION_OPTIONS = [
+    { value: '5/2', workDays: 5, offDays: 2 },
+    { value: '4/2', workDays: 4, offDays: 2 },
+    { value: '4/3', workDays: 4, offDays: 3 }
+  ] as const;
+
   const dayCount = new Date(year, month, 0).getDate();
+  const previousMonthYear = month === 1 ? year - 1 : year;
+  const previousMonth = month === 1 ? 12 : month - 1;
   const allDates = useMemo(
     () => Array.from({ length: dayCount }, (_, idx) => buildDateKey(year, month, idx + 1)),
     [dayCount, month, year]
@@ -41,10 +54,16 @@ export const ScheduleTable = ({
   const [bulkEmployee, setBulkEmployee] = useState<string>('ALL');
   const [bulkFromDate, setBulkFromDate] = useState<string>(allDates[0] ?? '');
   const [bulkToDate, setBulkToDate] = useState<string>(allDates[allDates.length - 1] ?? '');
+  const [rotationStartDate, setRotationStartDate] = useState<string>(allDates[0] ?? '');
+  const [rotationMode, setRotationMode] = useState<(typeof ROTATION_OPTIONS)[number]['value']>('5/2');
+
+  const minRotationStartDate = buildDateKey(previousMonthYear, previousMonth, 1);
+  const maxRotationStartDate = allDates[allDates.length - 1] ?? '';
 
   useEffect(() => {
     setBulkFromDate(allDates[0] ?? '');
     setBulkToDate(allDates[allDates.length - 1] ?? '');
+    setRotationStartDate(allDates[0] ?? '');
   }, [allDates]);
 
   const applyBulk = (): void => {
@@ -87,6 +106,28 @@ export const ScheduleTable = ({
     }
   };
 
+  const applyOffRotation = (): void => {
+    if (!setCellValue || !rotationStartDate) return;
+
+    const selectedRotation = ROTATION_OPTIONS.find((option) => option.value === rotationMode);
+    if (!selectedRotation) return;
+
+    const rotationStartUtc = parseDateToUtc(rotationStartDate);
+    const cycleLength = selectedRotation.workDays + selectedRotation.offDays;
+    const targetEmployees = bulkEmployee === 'ALL' ? employees : employees.filter((employee) => employee.id === bulkEmployee);
+
+    for (const employee of targetEmployees) {
+      for (const date of allDates) {
+        const dayOffset = Math.floor((parseDateToUtc(date) - rotationStartUtc) / 86_400_000);
+        if (dayOffset < 0) continue;
+        const dayInCycle = dayOffset % cycleLength;
+        if (dayInCycle >= selectedRotation.workDays) {
+          setCellValue(employee.id, date, { type: 'SPECIAL', value: 'OFF' });
+        }
+      }
+    }
+  };
+
   return (
     <div>
       {!readOnly && (
@@ -124,6 +165,26 @@ export const ScheduleTable = ({
             </button>
             <button type="button" onClick={clearBulk}>
               Очистить диапазон
+            </button>
+          </div>
+          <div className="toolbar-row bulk-edit-row">
+            <strong>Чередование выходных:</strong>
+            <input
+              type="date"
+              min={minRotationStartDate}
+              max={maxRotationStartDate}
+              value={rotationStartDate}
+              onChange={(event) => setRotationStartDate(event.target.value)}
+            />
+            <select value={rotationMode} onChange={(event) => setRotationMode(event.target.value as (typeof ROTATION_OPTIONS)[number]['value'])}>
+              {ROTATION_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.value}
+                </option>
+              ))}
+            </select>
+            <button type="button" onClick={applyOffRotation}>
+              Применить чередование
             </button>
           </div>
         </>
