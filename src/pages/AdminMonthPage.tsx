@@ -24,6 +24,13 @@ export const AdminMonthPage = (): JSX.Element => {
   );
   const objects = dataService.getObjectsByAdmin(selectedAdminId);
   const monthData = dataService.getMonth(selectedAdminId, monthKey);
+  const vacationRequestsInMonth = dataService
+    .getVacationRequestsByAdmin(selectedAdminId)
+    .filter((request) => request.month_key === monthKey)
+    .map((request) => ({
+      ...request,
+      employeeName: activeEmployees.find((employee) => employee.id === request.employee_id)?.full_name ?? 'Сотрудник удален'
+    }));
 
   const dates = useMemo(() => {
     const count = daysInMonth(2026, month);
@@ -77,6 +84,18 @@ export const AdminMonthPage = (): JSX.Element => {
       <h1>График {String(month).padStart(2, '0')}.2026</h1>
       <p>Статус: {monthData.status === 'published' ? 'Опубликован' : 'Черновик'}</p>
       {notice && <div className="notice">{notice}</div>}
+      {vacationRequestsInMonth.length > 0 && (
+        <div className="notice notice-error">
+          <strong>Внимание: на этот месяц уже внесены отпуска сотрудниками.</strong>
+          <ul>
+            {vacationRequestsInMonth.map((request) => (
+              <li key={request.id}>
+                {request.employeeName}: {request.start_date} — {request.end_date} ({request.vacation_days} дн.)
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="toolbar-row">
         <input
