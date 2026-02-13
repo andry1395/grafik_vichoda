@@ -116,12 +116,40 @@ src/
    ```bash
    cp .env.example .env.local
    ```
-2. Значения в `.env.example` уже заполнены вашим `firebaseConfig` (при необходимости обновите).
-3. Убедитесь, что в Firebase включены:
+2. Проверьте, что `.env.local` заполнен:
+   ```bash
+   npm run check:firebase-env
+   ```
+3. Значения в `.env.example` уже заполнены вашим `firebaseConfig` (при необходимости обновите).
+4. Убедитесь, что в Firebase включены:
    - Firestore Database
    - Authentication → Email/Password
-4. В проект добавлен модуль `src/services/firebase.ts` с `firebaseConfig` и проверкой `isFirebaseConfigured()`.
-5. После настройки переменных приложение автоматически работает в режиме Firestore-first (с локальным fallback).
+5. В проект добавлен модуль `src/services/firebase.ts` с `firebaseConfig` и проверкой `isFirebaseConfigured()`.
+6. После настройки переменных приложение автоматически работает в режиме Firestore-first (с локальным fallback).
+
+### Если данные не уходят в Firebase (быстрый чек-лист)
+
+1. Создан ли файл `.env.local` (а не только `.env.example`).
+2. Запустите проверку: `npm run check:firebase-env`.
+3. После изменения `.env.local` **перезапустите** `npm run dev`.
+4. Откройте страницу `/admin/sync` и убедитесь, что в check-list все поля Firebase помечены как `✅`.
+5. Проверьте Firestore Rules. Если получаете `PERMISSION_DENIED`, значит правила не разрешают запись.
+   Для проверки можно временно (только на тест) открыть доступ:
+   ```text
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /{document=**} {
+         allow read, write: if true;
+       }
+     }
+   }
+   ```
+   ⚠️ После проверки обязательно закройте правила под вашу модель доступа.
+6. Проверьте, что документ создается/обновляется по пути `appData/main` в Firestore.
+
+7. В Firebase Console → Firestore Database → Rules вставьте правила из файла репозитория:
+   - `firebase.firestore.rules`
 
 Сейчас включен режим **Firestore-first с локальным fallback**:
 - при старте приложения выполняется `pullFromFirestore()`: UI загружается после попытки получить актуальный snapshot из Firestore (`appData/main`);

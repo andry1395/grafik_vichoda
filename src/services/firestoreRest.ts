@@ -56,11 +56,23 @@ const fromFirestoreValue = (value: FirestoreValue | undefined): unknown => {
 const documentUrl = (projectId: string, apiKey: string): string =>
   `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/appData/main?key=${apiKey}`;
 
+
+const readFirestoreError = async (response: Response): Promise<string> => {
+  try {
+    const data = (await response.json()) as { error?: { message?: string; status?: string } };
+    const status = data.error?.status ? ` (${data.error.status})` : '';
+    const message = data.error?.message ?? 'Unknown Firestore error';
+    return `${response.status}${status}: ${message}`;
+  } catch {
+    return String(response.status);
+  }
+};
+
 export const pullAppDataFromFirestore = async (projectId: string, apiKey: string): Promise<AppData | null> => {
   const response = await fetch(documentUrl(projectId, apiKey));
   if (response.status === 404) return null;
   if (!response.ok) {
-    throw new Error(`Firestore pull failed: ${response.status}`);
+    throw new Error(`Firestore pull failed: ${await readFirestoreError(response)}`);
   }
 
   const data = (await response.json()) as FirestoreDocument;
@@ -80,6 +92,6 @@ export const pushAppDataToFirestore = async (projectId: string, apiKey: string, 
   });
 
   if (!response.ok) {
-    throw new Error(`Firestore push failed: ${response.status}`);
+    throw new Error(`Firestore push failed: ${await readFirestoreError(response)}`);
   }
 };
