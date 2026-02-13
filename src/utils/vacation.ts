@@ -55,14 +55,9 @@ export const validateVacationPartByLaborCode = (
   const allParts = [...existingRequestsDays, nextRequestDays].filter((value) => value > 0);
   if (allParts.length === 0) return { valid: false, message: 'Период отпуска не может быть пустым.' };
 
-  const hasAtLeastTwoWeeks = allParts.some((value) => value >= 14);
-  if (!hasAtLeastTwoWeeks) {
-    return { valid: false, message: 'По ТК РФ минимум одна часть отпуска должна быть не менее 14 календарных дней.' };
-  }
-
   const total = allParts.reduce((sum, value) => sum + value, 0);
   if (total > 28) {
-    return { valid: false, message: 'Превышен базовый ежегодный отпуск 28 календарных дней (ст. 115 ТК РФ).' };
+    return { valid: false, message: 'Нельзя превысить 28 календарных дней отпуска в год.' };
   }
 
   return { valid: true };

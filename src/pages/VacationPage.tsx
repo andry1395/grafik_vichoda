@@ -6,31 +6,46 @@ import { countVacationDaysByLaborCode, validateVacationPartByLaborCode } from '.
 
 export const VacationPage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
-  const [token, setToken] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
   const [month, setMonth] = useState(1);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [notice, setNotice] = useState('');
 
   const monthKey = `2026-${String(month).padStart(2, '0')}`;
-  const employee = useMemo(() => dataService.getEmployeeByToken(selectedAdminId, token), [selectedAdminId, token]);
-  const existingRequest = employee ? dataService.getVacationRequestByEmployeeAndMonth(selectedAdminId, employee.id, monthKey) : null;
-  const usedDays = employee
+  const employees = useMemo(
+    () => dataService.getEmployeesByAdmin(selectedAdminId).filter((employeeItem) => employeeItem.active),
+    [selectedAdminId]
+  );
+  const employee = useMemo(() => employees.find((employeeItem) => employeeItem.id === employeeId) ?? null, [employeeId, employees]);
+  const existingRequests = employee
     ? dataService
         .getVacationRequestsByAdmin(selectedAdminId)
         .filter((item) => item.employee_id === employee.id)
-        .map((item) => item.vacation_days)
+        .sort((left, right) => left.start_date.localeCompare(right.start_date))
     : [];
+  const usedDays = employee
+    ? existingRequests.map((item) => item.vacation_days)
+    : [];
+  const totalUsedDays = usedDays.reduce((sum, value) => sum + value, 0);
+  const remainingDays = Math.max(0, 28 - totalUsedDays);
 
   const calculatedDays = startDate && endDate ? countVacationDaysByLaborCode(startDate, endDate) : 0;
 
   return (
     <section>
       <h1>Заявка на отпуск</h1>
-      <p>Сотрудник вносит отпуск один раз. Изменить даты после сохранения нельзя — корректировку выполняет только администратор.</p>
+      <p>У сотрудника доступно 28 календарных дней отпуска в год, которые можно дробить. Уже сохранённые записи сотрудник не редактирует.</p>
 
       <div className="toolbar-row">
-        <input value={token} onChange={(event) => setToken(event.target.value)} placeholder="Токен сотрудника" />
+        <select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}>
+          <option value="">Выберите сотрудника</option>
+          {employees.map((employeeItem) => (
+            <option key={employeeItem.id} value={employeeItem.id}>
+              {employeeItem.full_name}
+            </option>
+          ))}
+        </select>
         <select value={month} onChange={(event) => setMonth(Number(event.target.value))}>
           {MONTHS_2026.map((value) => (
             <option key={value} value={value}>
@@ -40,16 +55,22 @@ export const VacationPage = (): JSX.Element => {
         </select>
       </div>
 
-      {!employee && token.trim() && <div className="notice notice-error">Сотрудник не найден. Проверьте токен.</div>}
+      {!employee && employeeId && <div className="notice notice-error">Сотрудник не найден.</div>}
       {employee && <div className="notice">Сотрудник: {employee.full_name}</div>}
-
-      {employee && existingRequest && (
+      {employee && (
         <div className="notice">
-          Отпуск уже внесен: {existingRequest.start_date} — {existingRequest.end_date} ({existingRequest.vacation_days} дн.).
+          Использовано: {totalUsedDays} дн. из 28 дн. Осталось: {remainingDays} дн.
         </div>
       )}
 
-      {employee && !existingRequest && (
+      {employee &&
+        existingRequests.map((request) => (
+          <div key={request.id} className="notice">
+            Уже внесено: {request.start_date} — {request.end_date} ({request.vacation_days} дн.)
+          </div>
+        ))}
+
+      {employee && remainingDays > 0 && (
         <div className="toolbar-row">
           <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
           <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
@@ -77,12 +98,16 @@ export const VacationPage = (): JSX.Element => {
                 created_by: 'employee'
               });
               setNotice(`Отпуск сохранен: ${calculatedDays} дн. (без праздничных дней по ст. 120 ТК РФ)`);
+              setStartDate('');
+              setEndDate('');
             }}
           >
             Сохранить отпуск
           </button>
         </div>
       )}
+
+      {employee && remainingDays === 0 && <div className="notice">Лимит 28 дней уже полностью использован.</div>}
 
       {!!calculatedDays && <p>К расчету пойдет: {calculatedDays} дн. (праздничные дни не включаются, ст. 120 ТК РФ).</p>}
       {notice && <div className="notice">{notice}</div>}
