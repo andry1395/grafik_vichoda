@@ -112,16 +112,12 @@ src/
 
 ## Подключение Firebase (основное хранилище)
 
-1. Создайте локальный env-файл:
-   ```bash
-   npm run setup:env
-   ```
-   > `.env.local` **не хранится в репозитории** (он в `.gitignore`), поэтому это нормально, что его нет в git.
-2. Проверьте, что `.env.local` заполнен:
+1. Все Firebase-переменные уже добавлены в репозиторий в файл `.env`, поэтому после merge ничего дополнительно создавать не нужно.
+2. При необходимости можно переопределить значения локально в `.env.local`.
+3. Проверить переменные можно командой:
    ```bash
    npm run check:firebase-env
    ```
-3. Значения в `.env.example` уже заполнены вашим `firebaseConfig` (при необходимости обновите).
 4. Убедитесь, что в Firebase включены:
    - Firestore Database
    - Authentication → Email/Password
@@ -130,11 +126,10 @@ src/
 
 ### Если данные не уходят в Firebase (быстрый чек-лист)
 
-1. Создан ли файл `.env.local` (если нет — `npm run setup:env`).
-2. Запустите проверку: `npm run check:firebase-env`.
-3. После изменения `.env.local` **перезапустите** `npm run dev`.
-4. Откройте страницу `/admin/sync` и убедитесь, что в check-list все поля Firebase помечены как `✅`.
-5. Проверьте Firestore Rules. Если получаете `PERMISSION_DENIED`, значит правила не разрешают запись.
+1. Запустите проверку: `npm run check:firebase-env`.
+2. Если меняли `.env` или `.env.local`, **перезапустите** `npm run dev`.
+3. Откройте страницу `/admin/sync` и убедитесь, что в check-list все поля Firebase помечены как `✅`.
+4. Проверьте Firestore Rules. Если получаете `PERMISSION_DENIED`, значит правила не разрешают запись.
    Для проверки можно временно (только на тест) открыть доступ:
    ```text
    rules_version = '2';
@@ -147,9 +142,9 @@ src/
    }
    ```
    ⚠️ После проверки обязательно закройте правила под вашу модель доступа.
-6. Проверьте, что документ создается/обновляется по пути `appData/main` в Firestore.
+5. Проверьте, что документ создается/обновляется по пути `appData/main` в Firestore.
 
-7. В Firebase Console → Firestore Database → Rules вставьте правила из файла репозитория:
+6. В Firebase Console → Firestore Database → Rules вставьте правила из файла репозитория:
    - `firebase.firestore.rules`
 
 Сейчас включен режим **Firestore-only + in-memory во вкладке**:

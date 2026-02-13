@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const envPath = resolve('.env.local');
+const localEnvPath = resolve('.env.local');
+const defaultEnvPath = resolve('.env');
 const requiredKeys = [
   'VITE_FIREBASE_API_KEY',
   'VITE_FIREBASE_AUTH_DOMAIN',
@@ -11,9 +12,10 @@ const requiredKeys = [
   'VITE_FIREBASE_APP_ID'
 ];
 
+const envPath = existsSync(localEnvPath) ? localEnvPath : defaultEnvPath;
+
 if (!existsSync(envPath)) {
-  console.error('❌ Не найден .env.local');
-  console.error('Создайте его командой: cp .env.example .env.local');
+  console.error('❌ Не найден ни .env.local, ни .env');
   process.exit(1);
 }
 
@@ -39,4 +41,4 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-console.log('✅ Firebase env выглядит заполненным (.env.local)');
+console.log(`✅ Firebase env выглядит заполненным (${envPath.endsWith('.env.local') ? '.env.local' : '.env'})`);
