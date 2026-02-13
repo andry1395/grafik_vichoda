@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Этот проект пишет один документ: appData/main.
+    // ВНИМАНИЕ: правило ниже открытое (подходит только для MVP/внутреннего использования).
+    // Для продакшна обязательно ограничьте доступ (auth/claims/валидация).
+    match /appData/main {
+      allow read, write: if true;
+    }
+  }
+}

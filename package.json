@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "ci:verify": "npm run check:data-service && npm run typecheck && npm run build",
-    "check:data-service": "node scripts/check-dataService-duplicates.mjs"
+    "check:data-service": "node scripts/check-dataService-duplicates.mjs",
+    "check:firebase-env": "node scripts/check-firebase-env.mjs",
+    "setup:env": "node scripts/setup-env-local.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
