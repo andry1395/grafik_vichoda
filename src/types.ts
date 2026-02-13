@@ -41,4 +41,18 @@ export interface AppData {
   employees: Employee[];
   objects: WorkObject[];
   months: Record<string, MonthData>;
+  vacation_requests: VacationRequest[];
+}
+
+export interface VacationRequest {
+  id: string;
+  admin_id: string;
+  employee_id: string;
+  month_key: string;
+  start_date: string;
+  end_date: string;
+  vacation_days: number;
+  created_at: string;
+  updated_at: string;
+  created_by: 'employee' | 'admin';
 }
