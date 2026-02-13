@@ -3,6 +3,15 @@ import { dataService } from '../services/dataService';
 import { getSelectedAdminId } from '../utils/adminAuth';
 import { countVacationDaysByLaborCode } from '../utils/vacation';
 import { exportVacationsToCsv } from '../utils/export';
+import { formatDateDmy } from '../utils/date';
+import { MONTHS_2026 } from '../utils/constants';
+
+const getYearFromDate = (isoDate: string): number => Number(isoDate.slice(0, 4));
+const getMonthFromMonthKey = (monthKey: string): number => Number(monthKey.slice(5, 7));
+
+const rangesOverlap = (leftStart: string, leftEnd: string, rightStart: string, rightEnd: string): boolean => {
+  return leftStart <= rightEnd && rightStart <= leftEnd;
+};
 
 export const AdminVacationsPage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
@@ -12,6 +21,9 @@ export const AdminVacationsPage = (): JSX.Element => {
   const [endDate, setEndDate] = useState('');
   const [tick, setTick] = useState(0);
   const [employeeFilter, setEmployeeFilter] = useState('');
+  const [yearFilter, setYearFilter] = useState<string>('all');
+  const [monthFilter, setMonthFilter] = useState<string>('all');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const employees = dataService.getEmployeesByAdmin(selectedAdminId);
   const requests = dataService.getVacationRequestsByAdmin(selectedAdminId);
@@ -22,6 +34,50 @@ export const AdminVacationsPage = (): JSX.Element => {
     return request.employee_id === employeeFilter;
   });
 
+  const overlapBaseRequests = useMemo(
+    () =>
+      requests
+        .map((request) => ({ ...request, employeeName: employeeById.get(request.employee_id) ?? 'Сотрудник удален' }))
+        .filter((request) => (employeeFilter ? request.employee_id === employeeFilter : true)),
+    [employeeById, employeeFilter, requests]
+  );
+
+  const years = useMemo(() => {
+    const uniqueYears = Array.from(new Set(overlapBaseRequests.map((request) => getYearFromDate(request.start_date))));
+    return uniqueYears.sort((left, right) => left - right);
+  }, [overlapBaseRequests]);
+
+  const overlapTableRows = useMemo(() => {
+    return overlapBaseRequests
+      .filter((request) => {
+        const requestYear = getYearFromDate(request.start_date);
+        const requestMonth = getMonthFromMonthKey(request.month_key);
+        const yearMatch = yearFilter === 'all' || requestYear === Number(yearFilter);
+        const monthMatch = monthFilter === 'all' || requestMonth === Number(monthFilter);
+        return yearMatch && monthMatch;
+      })
+      .sort((left, right) => {
+        const cmp = left.start_date.localeCompare(right.start_date);
+        return sortDirection === 'asc' ? cmp : -cmp;
+      });
+  }, [monthFilter, overlapBaseRequests, sortDirection, yearFilter]);
+
+  const overlappingRequestIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (let i = 0; i < overlapTableRows.length; i += 1) {
+      for (let j = i + 1; j < overlapTableRows.length; j += 1) {
+        const left = overlapTableRows[i];
+        const right = overlapTableRows[j];
+        if (left.employee_id === right.employee_id) continue;
+        if (rangesOverlap(left.start_date, left.end_date, right.start_date, right.end_date)) {
+          ids.add(left.id);
+          ids.add(right.id);
+        }
+      }
+    }
+    return ids;
+  }, [overlapTableRows]);
+
   const exportRows = filteredRequests.map((request) => ({
     employeeName: employeeById.get(request.employee_id) ?? 'Сотрудник удален',
     monthKey: request.month_key,
@@ -30,6 +86,12 @@ export const AdminVacationsPage = (): JSX.Element => {
     vacationDays: request.vacation_days,
     source: request.created_by
   }));
+
+  const editingVacationDays = startDate && endDate ? countVacationDaysByLaborCode(startDate, endDate) : 0;
+  const endDateHoverTitle =
+    startDate && endDate
+      ? `Расчет отпуска: ${editingVacationDays} дн. (праздничные дни не включаются)`
+      : 'Выберите дату начала и окончания, чтобы увидеть расчет дней отпуска';
 
   return (
     <section key={tick}>
@@ -80,10 +142,16 @@ export const AdminVacationsPage = (): JSX.Element => {
                   {isEditing ? (
                     <div className="toolbar-row">
                       <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-                      <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(event) => setEndDate(event.target.value)}
+                        title={endDateHoverTitle}
+                        aria-label="Дата окончания отпуска. Наведите курсор для подсказки по количеству дней"
+                      />
                     </div>
                   ) : (
-                    `${request.start_date} — ${request.end_date}`
+                    `${formatDateDmy(request.start_date)} — ${formatDateDmy(request.end_date)}`
                   )}
                 </td>
                 <td>{request.vacation_days}</td>
@@ -115,23 +183,115 @@ export const AdminVacationsPage = (): JSX.Element => {
                       <button type="button" onClick={() => setEditingId(null)}>
                         Отмена
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const removed = dataService.removeVacationRequest(request.id);
+                          if (!removed) {
+                            setNotice('Не удалось удалить отпуск: запись не найдена.');
+                            return;
+                          }
+                          setEditingId(null);
+                          setNotice('Отпуск удален администратором.');
+                          setTick((value) => value + 1);
+                        }}
+                      >
+                        Удалить отпуск
+                      </button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingId(request.id);
-                        setStartDate(request.start_date);
-                        setEndDate(request.end_date);
-                      }}
-                    >
-                      Редактировать (админ)
-                    </button>
+                    <div className="toolbar-row">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(request.id);
+                          setStartDate(request.start_date);
+                          setEndDate(request.end_date);
+                        }}
+                      >
+                        Редактировать (админ)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const removed = dataService.removeVacationRequest(request.id);
+                          if (!removed) {
+                            setNotice('Не удалось удалить отпуск: запись не найдена.');
+                            return;
+                          }
+                          setNotice('Отпуск удален администратором.');
+                          setTick((value) => value + 1);
+                        }}
+                      >
+                        Удалить отпуск
+                      </button>
+                    </div>
                   )}
                 </td>
               </tr>
             );
           })}
+        </tbody>
+      </table>
+
+      <h2>Таблица пересечений отпусков</h2>
+      <div className="toolbar-row">
+        <select value={yearFilter} onChange={(event) => setYearFilter(event.target.value)}>
+          <option value="all">Все годы</option>
+          {years.map((year) => (
+            <option key={year} value={String(year)}>
+              {year}
+            </option>
+          ))}
+        </select>
+        <select value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)}>
+          <option value="all">Все месяцы</option>
+          {MONTHS_2026.map((value) => (
+            <option key={value} value={String(value)}>
+              {String(value).padStart(2, '0')}
+            </option>
+          ))}
+        </select>
+        <select value={sortDirection} onChange={(event) => setSortDirection(event.target.value as 'asc' | 'desc')}>
+          <option value="asc">Сортировка: сначала ранние</option>
+          <option value="desc">Сортировка: сначала поздние</option>
+        </select>
+      </div>
+
+      <table className="simple-table">
+        <thead>
+          <tr>
+            <th>Сотрудник</th>
+            <th>Год</th>
+            <th>Месяц</th>
+            <th>Период</th>
+            <th>Дней к оплате</th>
+            <th>Пересечение</th>
+          </tr>
+        </thead>
+        <tbody>
+          {overlapTableRows.map((request) => {
+            const year = getYearFromDate(request.start_date);
+            const monthNumber = getMonthFromMonthKey(request.month_key);
+            const hasOverlap = overlappingRequestIds.has(request.id);
+            return (
+              <tr key={request.id} className={hasOverlap ? 'vacation-overlap-row' : undefined}>
+                <td>{request.employeeName}</td>
+                <td>{year}</td>
+                <td>{String(monthNumber).padStart(2, '0')}</td>
+                <td>
+                  {formatDateDmy(request.start_date)} — {formatDateDmy(request.end_date)}
+                </td>
+                <td>{request.vacation_days}</td>
+                <td>{hasOverlap ? 'Да' : '—'}</td>
+              </tr>
+            );
+          })}
+          {overlapTableRows.length === 0 && (
+            <tr>
+              <td colSpan={6}>По выбранным фильтрам отпусков нет.</td>
+            </tr>
+          )}
         </tbody>
       </table>
     </section>

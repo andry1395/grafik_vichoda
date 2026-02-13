@@ -415,6 +415,15 @@ const updateVacationRequest = (
   return request;
 };
 
+const removeVacationRequest = (requestId: string): boolean => {
+  const data = getFromStorage();
+  const currentLength = data.vacation_requests.length;
+  data.vacation_requests = data.vacation_requests.filter((item) => item.id !== requestId);
+  if (data.vacation_requests.length === currentLength) return false;
+  setToStorage(data);
+  return true;
+};
+
 let realtimeSyncTimer: ReturnType<typeof setInterval> | undefined;
 let realtimeSyncEventHandler: (() => void) | undefined;
 
@@ -497,6 +506,7 @@ export const dataService = {
   getVacationRequestByEmployeeAndMonth,
   createVacationRequest,
   updateVacationRequest,
+  removeVacationRequest,
   pullFromFirestore,
   pushToFirestore,
   startRealtimeSync,
