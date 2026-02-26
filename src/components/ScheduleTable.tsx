@@ -50,6 +50,30 @@ export const ScheduleTable = ({
     return allDates.includes(selectedDate) ? [selectedDate] : allDates;
   }, [allDates, selectedDate]);
 
+
+  const objectAssignmentsByDate = useMemo(() => {
+    const assignments: Record<string, Record<string, { total: number; mechanics: number; trainees: number }>> = {};
+
+    for (const date of dates) {
+      assignments[date] = {};
+      for (const employee of employees) {
+        const cell = getCellValue(employee.id, date);
+        if (cell.type !== 'OBJECT') continue;
+
+        const current = assignments[date][cell.value] ?? { total: 0, mechanics: 0, trainees: 0 };
+        current.total += 1;
+        if (employee.role === 'trainee') {
+          current.trainees += 1;
+        } else {
+          current.mechanics += 1;
+        }
+        assignments[date][cell.value] = current;
+      }
+    }
+
+    return assignments;
+  }, [dates, employees, getCellValue]);
+
   const [massValue, setMassValue] = useState<string>('SPECIAL:OFF');
   const [bulkEmployee, setBulkEmployee] = useState<string>('ALL');
   const [bulkFromDate, setBulkFromDate] = useState<string>(allDates[0] ?? '');
@@ -190,6 +214,16 @@ export const ScheduleTable = ({
         </>
       )}
 
+
+      <div className="table-legend" aria-label="Легенда таблицы">
+        <span className="legend-item">
+          <span className="legend-dot legend-dot-single" /> Один сотрудник на объекте
+        </span>
+        <span className="legend-item">
+          <span className="legend-dot legend-dot-trainee-only" /> В смене только стажер(ы)
+        </span>
+      </div>
+
       <div className="table-wrap">
         <table className="schedule-table">
           <thead>
@@ -209,6 +243,11 @@ export const ScheduleTable = ({
             </tr>
           </thead>
           <tbody>
+            {employees.length === 0 && (
+              <tr>
+                <td colSpan={dates.length + 1}>Нет сотрудников по текущим фильтрам.</td>
+              </tr>
+            )}
             {employees.map((employee) => (
               <tr key={employee.id}>
                 <td className="sticky-col">{employee.full_name}</td>
@@ -216,9 +255,24 @@ export const ScheduleTable = ({
                   const value = getCellValue(employee.id, date);
                   const objectName = value.type === 'OBJECT' ? objects.find((item) => item.id === value.value)?.short_ru ?? '—' : '';
                   const display = value.type === 'OBJECT' ? objectName : SPECIAL_LABELS[value.value];
+                  const assignment = value.type === 'OBJECT' ? objectAssignmentsByDate[date]?.[value.value] : undefined;
+                  const isSingleEmployeeOnObject = value.type === 'OBJECT' && (assignment?.total ?? 0) === 1;
+                  const isTraineeOnlyShift = value.type === 'OBJECT' && (assignment?.total ?? 0) > 0 && (assignment?.mechanics ?? 0) === 0;
 
                   return (
-                    <td key={date}>
+                    <td
+                      key={date}
+                      className={[isSingleEmployeeOnObject ? 'single-employee-object-day' : '', isTraineeOnlyShift ? 'trainee-only-shift-day' : '']
+                        .filter(Boolean)
+                        .join(' ')}
+                      title={
+                        isTraineeOnlyShift
+                          ? 'На объект в эту смену назначены только стажеры'
+                          : isSingleEmployeeOnObject
+                            ? 'На объекте в эту смену только один сотрудник'
+                            : undefined
+                      }
+                    >
                       {readOnly ? (
                         <span>{display}</span>
                       ) : (
