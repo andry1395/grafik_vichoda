@@ -21,7 +21,7 @@ export const VacationPage = (): JSX.Element => {
   const [notice, setNotice] = useState('');
   const [yearFilter, setYearFilter] = useState<string>('all');
   const [monthFilter, setMonthFilter] = useState<string>('all');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [tableEmployeeFilter, setTableEmployeeFilter] = useState<string>('all');
 
   const monthKey = `2026-${String(month).padStart(2, '0')}`;
   const employees = useMemo(
@@ -61,13 +61,11 @@ export const VacationPage = (): JSX.Element => {
         const requestMonth = getMonthFromMonthKey(request.month_key);
         const yearMatch = yearFilter === 'all' || requestYear === Number(yearFilter);
         const monthMatch = monthFilter === 'all' || requestMonth === Number(monthFilter);
-        return yearMatch && monthMatch;
+        const employeeMatch = tableEmployeeFilter === 'all' || request.employee_id === tableEmployeeFilter;
+        return yearMatch && monthMatch && employeeMatch;
       })
-      .sort((left, right) => {
-        const cmp = left.start_date.localeCompare(right.start_date);
-        return sortDirection === 'asc' ? cmp : -cmp;
-      });
-  }, [allRequests, monthFilter, sortDirection, yearFilter]);
+      .sort((left, right) => left.start_date.localeCompare(right.start_date));
+  }, [allRequests, monthFilter, tableEmployeeFilter, yearFilter]);
 
   const overlappingRequestIds = useMemo(() => {
     const ids = new Set<string>();
@@ -88,7 +86,7 @@ export const VacationPage = (): JSX.Element => {
   const calculatedDays = startDate && endDate ? countVacationDaysByLaborCode(startDate, endDate) : 0;
   const endDateHoverTitle =
     startDate && endDate
-      ? `Расчет отпуска: ${calculatedDays} дн. (праздничные дни не включаются)`
+      ? `Расчет отпуска: ${calculatedDays} дн.`
       : 'Выберите дату начала и окончания, чтобы увидеть расчет дней отпуска';
 
   return (
@@ -162,7 +160,7 @@ export const VacationPage = (): JSX.Element => {
                 vacation_days: calculatedDays,
                 created_by: 'employee'
               });
-              setNotice(`Отпуск сохранен: ${calculatedDays} дн. (без праздничных дней по ст. 120 ТК РФ)`);
+              setNotice(`Отпуск сохранен: ${calculatedDays} дн.`);
               setStartDate('');
               setEndDate('');
             }}
@@ -192,9 +190,13 @@ export const VacationPage = (): JSX.Element => {
             </option>
           ))}
         </select>
-        <select value={sortDirection} onChange={(event) => setSortDirection(event.target.value as 'asc' | 'desc')}>
-          <option value="asc">Сортировка: сначала ранние</option>
-          <option value="desc">Сортировка: сначала поздние</option>
+        <select value={tableEmployeeFilter} onChange={(event) => setTableEmployeeFilter(event.target.value)}>
+          <option value="all">Все сотрудники</option>
+          {employees.map((employeeItem) => (
+            <option key={employeeItem.id} value={employeeItem.id}>
+              {employeeItem.full_name}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -202,8 +204,6 @@ export const VacationPage = (): JSX.Element => {
         <thead>
           <tr>
             <th>Сотрудник</th>
-            <th>Год</th>
-            <th>Месяц</th>
             <th>Период</th>
             <th>Дней к оплате</th>
             <th>Пересечения</th>
@@ -211,14 +211,10 @@ export const VacationPage = (): JSX.Element => {
         </thead>
         <tbody>
           {filteredRequests.map((request) => {
-            const monthNumber = getMonthFromMonthKey(request.month_key);
-            const yearNumber = getYearFromDate(request.start_date);
             const hasOverlap = overlappingRequestIds.has(request.id);
             return (
               <tr key={request.id} className={hasOverlap ? 'vacation-overlap-row' : undefined}>
                 <td>{request.employeeName}</td>
-                <td>{yearNumber}</td>
-                <td>{String(monthNumber).padStart(2, '0')}</td>
                 <td>
                   {formatDateDmy(request.start_date)} — {formatDateDmy(request.end_date)}
                 </td>
@@ -229,13 +225,13 @@ export const VacationPage = (): JSX.Element => {
           })}
           {filteredRequests.length === 0 && (
             <tr>
-              <td colSpan={6}>По выбранной сортировке/фильтрам отпусков нет.</td>
+              <td colSpan={4}>По выбранным фильтрам отпусков нет.</td>
             </tr>
           )}
         </tbody>
       </table>
 
-      {!!calculatedDays && <p>К расчету пойдет: {calculatedDays} дн. (праздничные дни не включаются, ст. 120 ТК РФ).</p>}
+      {!!calculatedDays && <p>К расчету пойдет: {calculatedDays} дн.</p>}
       {notice && <div className="notice">{notice}</div>}
     </section>
   );
