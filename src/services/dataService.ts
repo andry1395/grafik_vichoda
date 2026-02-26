@@ -219,6 +219,29 @@ const validateAdminPassword = (adminId: string, password: string): boolean => {
 
 const getEmployeesByAdmin = (adminId: string): Employee[] => getFromStorage().employees.filter((employee) => employee.admin_id === adminId);
 
+const reorderEmployeesByAdmin = (adminId: string, orderedEmployeeIds: string[]): void => {
+  const data = getFromStorage();
+  const adminEmployees = data.employees.filter((employee) => employee.admin_id === adminId);
+  if (adminEmployees.length <= 1) return;
+
+  const employeesById = new Map(adminEmployees.map((employee) => [employee.id, employee]));
+  const reorderedAdminEmployees = orderedEmployeeIds
+    .map((id) => employeesById.get(id))
+    .filter((employee): employee is Employee => Boolean(employee));
+
+  if (reorderedAdminEmployees.length !== adminEmployees.length) return;
+
+  let adminIndex = 0;
+  data.employees = data.employees.map((employee) => {
+    if (employee.admin_id !== adminId) return employee;
+    const reordered = reorderedAdminEmployees[adminIndex];
+    adminIndex += 1;
+    return reordered;
+  });
+
+  setToStorage(data);
+};
+
 const getObjectsByAdmin = (adminId: string): WorkObject[] => getFromStorage().objects.filter((objectItem) => objectItem.admin_id === adminId);
 
 const upsertEmployee = (
@@ -556,6 +579,7 @@ export const dataService = {
   removeAdmin,
   validateAdminPassword,
   getEmployeesByAdmin,
+  reorderEmployeesByAdmin,
   getObjectsByAdmin,
   getMonth,
   upsertEmployee,
