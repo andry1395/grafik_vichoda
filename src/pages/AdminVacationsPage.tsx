@@ -108,6 +108,12 @@ export const AdminVacationsPage = (): JSX.Element => {
       ? `Расчет отпуска: ${editingVacationDays} дн.`
       : 'Выберите дату начала и окончания, чтобы увидеть расчет дней отпуска';
 
+  const resetOverlapFilters = (): void => {
+    setYearFilter('all');
+    setMonthFilter('all');
+    setSortDirection('asc');
+  };
+
   return (
     <section key={tick}>
       <h1>Отпуска сотрудников</h1>
@@ -271,7 +277,16 @@ export const AdminVacationsPage = (): JSX.Element => {
           <option value="asc">Сортировка: сначала ранние</option>
           <option value="desc">Сортировка: сначала поздние</option>
         </select>
+        <button type="button" onClick={resetOverlapFilters}>Сбросить фильтры</button>
       </div>
+
+      {(yearFilter !== 'all' || monthFilter !== 'all' || sortDirection !== 'asc') && (
+        <div className="filter-chips" aria-label="Активные фильтры">
+          {yearFilter !== 'all' && <span className="filter-chip">Год: {yearFilter}</span>}
+          {monthFilter !== 'all' && <span className="filter-chip">Месяц: {monthFilter}</span>}
+          {sortDirection !== 'asc' && <span className="filter-chip">Сортировка: сначала поздние</span>}
+        </div>
+      )}
 
       <table className="simple-table">
         <thead>
@@ -299,13 +314,30 @@ export const AdminVacationsPage = (): JSX.Element => {
                   {formatDateDmy(request.start_date)} — {formatDateDmy(request.end_date)}
                 </td>
                 <td>{request.vacation_days}</td>
-                <td>{hasOverlap ? overlapDetails.join(', ') : '—'}</td>
+                <td>
+                  {hasOverlap ? (
+                    <div className="overlap-badges">
+                      {overlapDetails.map((detail) => (
+                        <span key={`${request.id}_${detail}`} className="overlap-badge">
+                          {detail}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    '—'
+                  )}
+                </td>
               </tr>
             );
           })}
           {overlapTableRows.length === 0 && (
             <tr>
-              <td colSpan={6}>По выбранным фильтрам отпусков нет.</td>
+              <td colSpan={6}>
+                По выбранным фильтрам отпусков нет.
+                <div>
+                  <button type="button" onClick={resetOverlapFilters}>Сбросить фильтры</button>
+                </div>
+              </td>
             </tr>
           )}
         </tbody>

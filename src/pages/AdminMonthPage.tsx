@@ -91,6 +91,12 @@ export const AdminMonthPage = (): JSX.Element => {
       .map((employee) => employee.full_name);
   }, [dates, dayFilter, employees, monthKey, selectedAdminId, tick]);
 
+  const resetFilters = (): void => {
+    setEmployeeSearch('');
+    setObjectFilter('ALL');
+    setDayFilter('');
+  };
+
   const rerender = (message: string): void => {
     setTick((value) => value + 1);
     setNotice(message);
@@ -115,7 +121,7 @@ export const AdminMonthPage = (): JSX.Element => {
         </div>
       )}
 
-      <div className="toolbar-row">
+      <div className="toolbar-row sticky-actions">
         <input
           value={employeeSearch}
           onChange={(event) => setEmployeeSearch(event.target.value)}
@@ -137,6 +143,9 @@ export const AdminMonthPage = (): JSX.Element => {
           onChange={(event) => setDayFilter(event.target.value)}
           placeholder="Дата"
         />
+        <button type="button" onClick={resetFilters}>
+          Сбросить фильтры
+        </button>
         <button type="button" onClick={() => rerender('Сохранено')}>
           Сохранить
         </button>
@@ -197,6 +206,29 @@ export const AdminMonthPage = (): JSX.Element => {
         </button>
       </div>
 
+
+      {(employeeSearch || objectFilter !== 'ALL' || dayFilter) && (
+        <div className="filter-chips" aria-label="Активные фильтры">
+          {employeeSearch && <span className="filter-chip">Имя: {employeeSearch}</span>}
+          {objectFilter !== 'ALL' && (
+            <span className="filter-chip">
+              Объект: {objects.find((item) => item.id === objectFilter)?.short_ru || objects.find((item) => item.id === objectFilter)?.name_ru || '—'}
+            </span>
+          )}
+          {dayFilter && <span className="filter-chip">Дата: {dayFilter}</span>}
+        </div>
+      )}
+
+
+      {employees.length === 0 && (
+        <div className="notice notice-error">
+          По текущим фильтрам сотрудники не найдены.
+          <div>
+            <button type="button" onClick={resetFilters}>Показать всех сотрудников</button>
+          </div>
+        </div>
+      )}
+
       <ScheduleTable
         year={2026}
         month={month}
@@ -225,6 +257,9 @@ export const AdminMonthPage = (): JSX.Element => {
             {workDaysByMechanic.map((item) => (
               <li key={item.id}>
                 <strong>{item.name}</strong>: {item.workDays} дн.
+                <div className="workload-bar">
+                  <span style={{ width: `${Math.min(100, (item.workDays / dates.length) * 100)}%` }} />
+                </div>
               </li>
             ))}
           </ul>

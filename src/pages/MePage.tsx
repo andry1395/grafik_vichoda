@@ -86,6 +86,12 @@ export const MePage = (): JSX.Element => {
       .map((employee) => employee.full_name);
   }, [dates, dayFilter, monthData.status, monthKey, selectedAdminId, visibleEmployees]);
 
+  const resetFilters = (): void => {
+    setNameFilter('');
+    setObjectFilter('ALL');
+    setDayFilter('');
+  };
+
   return (
     <section>
       <h1>Страница сотрудников (просмотр)</h1>
@@ -120,6 +126,7 @@ export const MePage = (): JSX.Element => {
           onChange={(event) => setDayFilter(event.target.value)}
           placeholder="Дата"
         />
+        <button type="button" onClick={resetFilters}>Сбросить фильтры</button>
         <button
           type="button"
           onClick={() => {
@@ -136,8 +143,28 @@ export const MePage = (): JSX.Element => {
         </button>
       </div>
 
+
+      {(nameFilter || objectFilter !== 'ALL' || dayFilter) && (
+        <div className="filter-chips" aria-label="Активные фильтры">
+          {nameFilter && <span className="filter-chip">Имя: {nameFilter}</span>}
+          {objectFilter !== 'ALL' && (
+            <span className="filter-chip">
+              Объект: {objectsByAdmin.find((item) => item.id === objectFilter)?.short_ru || objectsByAdmin.find((item) => item.id === objectFilter)?.name_ru || '—'}
+            </span>
+          )}
+          {dayFilter && <span className="filter-chip">Дата: {dayFilter}</span>}
+        </div>
+      )}
+
       {monthData.status !== 'published' && <p>График еще не опубликован</p>}
-      {monthData.status === 'published' && visibleEmployees.length === 0 && <p>Сотрудники не найдены.</p>}
+      {monthData.status === 'published' && visibleEmployees.length === 0 && (
+        <div className="notice notice-error">
+          Сотрудники не найдены по текущим фильтрам.
+          <div>
+            <button type="button" onClick={resetFilters}>Показать всех</button>
+          </div>
+        </div>
+      )}
 
       {monthData.status === 'published' && visibleEmployees.length > 0 && (
         <>

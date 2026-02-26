@@ -104,6 +104,18 @@ export const VacationPage = (): JSX.Element => {
       ? `Расчет отпуска: ${calculatedDays} дн.`
       : 'Выберите дату начала и окончания, чтобы увидеть расчет дней отпуска';
 
+  const dateRangeError = useMemo(() => {
+    if (!startDate || !endDate) return '';
+    if (startDate > endDate) return 'Дата окончания не может быть раньше даты начала.';
+    return '';
+  }, [endDate, startDate]);
+
+  const resetTableFilters = (): void => {
+    setYearFilter('all');
+    setMonthFilter('all');
+    setTableEmployeeFilter('all');
+  };
+
   return (
     <section>
       <h1>Заявка на отпуск</h1>
@@ -152,11 +164,18 @@ export const VacationPage = (): JSX.Element => {
             title={endDateHoverTitle}
             aria-label="Дата окончания отпуска. Наведите курсор для подсказки по количеству дней"
           />
+          {dateRangeError && <span className="field-error">{dateRangeError}</span>}
           <button
             type="button"
+            disabled={Boolean(dateRangeError)}
             onClick={() => {
               if (!startDate || !endDate) {
                 setNotice('Выберите даты начала и окончания.');
+                return;
+              }
+
+              if (dateRangeError) {
+                setNotice(dateRangeError);
                 return;
               }
 
@@ -213,7 +232,20 @@ export const VacationPage = (): JSX.Element => {
             </option>
           ))}
         </select>
+        <button type="button" onClick={resetTableFilters}>Сбросить фильтры</button>
       </div>
+
+      {(yearFilter !== 'all' || monthFilter !== 'all' || tableEmployeeFilter !== 'all') && (
+        <div className="filter-chips" aria-label="Активные фильтры">
+          {yearFilter !== 'all' && <span className="filter-chip">Год: {yearFilter}</span>}
+          {monthFilter !== 'all' && <span className="filter-chip">Месяц: {monthFilter}</span>}
+          {tableEmployeeFilter !== 'all' && (
+            <span className="filter-chip">
+              Сотрудник: {employees.find((item) => item.id === tableEmployeeFilter)?.full_name ?? '—'}
+            </span>
+          )}
+        </div>
+      )}
 
       <table className="simple-table">
         <thead>
@@ -235,13 +267,30 @@ export const VacationPage = (): JSX.Element => {
                   {formatDateDmy(request.start_date)} — {formatDateDmy(request.end_date)}
                 </td>
                 <td>{request.vacation_days}</td>
-                <td>{hasOverlap ? overlapDetails.join(', ') : '—'}</td>
+                <td>
+                  {hasOverlap ? (
+                    <div className="overlap-badges">
+                      {overlapDetails.map((detail) => (
+                        <span key={`${request.id}_${detail}`} className="overlap-badge">
+                          {detail}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    '—'
+                  )}
+                </td>
               </tr>
             );
           })}
           {filteredRequests.length === 0 && (
             <tr>
-              <td colSpan={4}>По выбранным фильтрам отпусков нет.</td>
+              <td colSpan={4}>
+                По выбранным фильтрам отпусков нет.
+                <div>
+                  <button type="button" onClick={resetTableFilters}>Показать все записи</button>
+                </div>
+              </td>
             </tr>
           )}
         </tbody>

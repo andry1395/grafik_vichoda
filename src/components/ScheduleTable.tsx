@@ -206,6 +206,13 @@ export const ScheduleTable = ({
         </>
       )}
 
+
+      <div className="table-legend" aria-label="Легенда таблицы">
+        <span className="legend-item">
+          <span className="legend-dot legend-dot-single" /> Один сотрудник на объекте
+        </span>
+      </div>
+
       <div className="table-wrap">
         <table className="schedule-table">
           <thead>
@@ -225,6 +232,11 @@ export const ScheduleTable = ({
             </tr>
           </thead>
           <tbody>
+            {employees.length === 0 && (
+              <tr>
+                <td colSpan={dates.length + 1}>Нет сотрудников по текущим фильтрам.</td>
+              </tr>
+            )}
             {employees.map((employee) => (
               <tr key={employee.id}>
                 <td className="sticky-col">{employee.full_name}</td>
