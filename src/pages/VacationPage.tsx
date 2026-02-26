@@ -86,7 +86,7 @@ export const VacationPage = (): JSX.Element => {
   const calculatedDays = startDate && endDate ? countVacationDaysByLaborCode(startDate, endDate) : 0;
   const endDateHoverTitle =
     startDate && endDate
-      ? `Расчет отпуска: ${calculatedDays} дн. (праздничные дни не включаются)`
+      ? `Расчет отпуска: ${calculatedDays} дн.`
       : 'Выберите дату начала и окончания, чтобы увидеть расчет дней отпуска';
 
   return (
@@ -160,7 +160,7 @@ export const VacationPage = (): JSX.Element => {
                 vacation_days: calculatedDays,
                 created_by: 'employee'
               });
-              setNotice(`Отпуск сохранен: ${calculatedDays} дн. (без праздничных дней по ст. 120 ТК РФ)`);
+              setNotice(`Отпуск сохранен: ${calculatedDays} дн.`);
               setStartDate('');
               setEndDate('');
             }}
@@ -231,7 +231,7 @@ export const VacationPage = (): JSX.Element => {
         </tbody>
       </table>
 
-      {!!calculatedDays && <p>К расчету пойдет: {calculatedDays} дн. (праздничные дни не включаются, ст. 120 ТК РФ).</p>}
+      {!!calculatedDays && <p>К расчету пойдет: {calculatedDays} дн.</p>}
       {notice && <div className="notice">{notice}</div>}
     </section>
   );

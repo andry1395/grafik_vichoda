@@ -90,7 +90,7 @@ export const AdminVacationsPage = (): JSX.Element => {
   const editingVacationDays = startDate && endDate ? countVacationDaysByLaborCode(startDate, endDate) : 0;
   const endDateHoverTitle =
     startDate && endDate
-      ? `Расчет отпуска: ${editingVacationDays} дн. (праздничные дни не включаются)`
+      ? `Расчет отпуска: ${editingVacationDays} дн.`
       : 'Выберите дату начала и окончания, чтобы увидеть расчет дней отпуска';
 
   return (
