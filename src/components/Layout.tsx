@@ -95,6 +95,9 @@ export const Layout = (): JSX.Element => {
             <NavLink to="/vacation" onClick={closeSidebarOnMobile}>
               Мой отпуск
             </NavLink>
+            <NavLink to="/plans" onClick={closeSidebarOnMobile}>
+              Планы
+            </NavLink>
           </div>
 
           <h3>Администрирование</h3>

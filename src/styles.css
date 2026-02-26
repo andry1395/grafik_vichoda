@@ -506,3 +506,8 @@ button:active {
   background: #fee2e2;
   color: #991b1b;
 }
+
+.plans-table input {
+  width: 100%;
+  min-width: 130px;
+}
