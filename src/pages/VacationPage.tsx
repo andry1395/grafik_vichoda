@@ -12,6 +12,13 @@ const rangesOverlap = (leftStart: string, leftEnd: string, rightStart: string, r
   return leftStart <= rightEnd && rightStart <= leftEnd;
 };
 
+const countOverlapDays = (leftStart: string, leftEnd: string, rightStart: string, rightEnd: string): number => {
+  const overlapStart = leftStart > rightStart ? leftStart : rightStart;
+  const overlapEnd = leftEnd < rightEnd ? leftEnd : rightEnd;
+  if (overlapStart > overlapEnd) return 0;
+  return countVacationDaysByLaborCode(overlapStart, overlapEnd);
+};
+
 export const VacationPage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
   const [employeeId, setEmployeeId] = useState('');
@@ -67,20 +74,28 @@ export const VacationPage = (): JSX.Element => {
       .sort((left, right) => left.start_date.localeCompare(right.start_date));
   }, [allRequests, monthFilter, tableEmployeeFilter, yearFilter]);
 
-  const overlappingRequestIds = useMemo(() => {
-    const ids = new Set<string>();
+  const overlapDetailsByRequestId = useMemo(() => {
+    const details = new Map<string, string[]>();
+
     for (let i = 0; i < filteredRequests.length; i += 1) {
       for (let j = i + 1; j < filteredRequests.length; j += 1) {
         const left = filteredRequests[i];
         const right = filteredRequests[j];
         if (left.employee_id === right.employee_id) continue;
-        if (rangesOverlap(left.start_date, left.end_date, right.start_date, right.end_date)) {
-          ids.add(left.id);
-          ids.add(right.id);
-        }
+        if (!rangesOverlap(left.start_date, left.end_date, right.start_date, right.end_date)) continue;
+
+        const overlapDays = countOverlapDays(left.start_date, left.end_date, right.start_date, right.end_date);
+        if (!overlapDays) continue;
+
+        const leftText = `${right.employeeName} (${overlapDays} дн.)`;
+        const rightText = `${left.employeeName} (${overlapDays} дн.)`;
+
+        details.set(left.id, [...(details.get(left.id) ?? []), leftText]);
+        details.set(right.id, [...(details.get(right.id) ?? []), rightText]);
       }
     }
-    return ids;
+
+    return new Map(Array.from(details.entries()).map(([id, items]) => [id, Array.from(new Set(items))]));
   }, [filteredRequests]);
 
   const calculatedDays = startDate && endDate ? countVacationDaysByLaborCode(startDate, endDate) : 0;
@@ -211,7 +226,8 @@ export const VacationPage = (): JSX.Element => {
         </thead>
         <tbody>
           {filteredRequests.map((request) => {
-            const hasOverlap = overlappingRequestIds.has(request.id);
+            const overlapDetails = overlapDetailsByRequestId.get(request.id) ?? [];
+            const hasOverlap = overlapDetails.length > 0;
             return (
               <tr key={request.id} className={hasOverlap ? 'vacation-overlap-row' : undefined}>
                 <td>{request.employeeName}</td>
@@ -219,7 +235,7 @@ export const VacationPage = (): JSX.Element => {
                   {formatDateDmy(request.start_date)} — {formatDateDmy(request.end_date)}
                 </td>
                 <td>{request.vacation_days}</td>
-                <td>{hasOverlap ? 'Есть пересечение' : '—'}</td>
+                <td>{hasOverlap ? overlapDetails.join(', ') : '—'}</td>
               </tr>
             );
           })}
