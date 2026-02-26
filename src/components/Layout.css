@@ -184,6 +184,7 @@
   .topbar-actions {
     flex: 1 1 auto;
     justify-content: flex-end;
+    min-width: 0;
   }
 
   .admin-select {
@@ -236,5 +237,68 @@
 
   .app-shell.sidebar-hidden .sidebar-backdrop {
     display: none;
+  }
+}
+
+
+@media (max-width: 700px) {
+  .topbar {
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 6px;
+    min-height: auto;
+  }
+
+  .menu-toggle {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .topbar-actions > span {
+    width: 100%;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  .admin-select {
+    flex: 1 1 150px;
+    max-width: none;
+    min-width: 120px;
+  }
+
+  .logout-btn {
+    flex: 0 0 auto;
+  }
+
+  .sidebar {
+    top: 110px;
+    height: calc(100vh - 110px);
+  }
+
+  .sidebar-backdrop {
+    top: 110px;
+  }
+}
+
+@media (max-width: 480px) {
+  .content {
+    padding: 10px;
+  }
+
+  .menu-toggle,
+  .logout-btn {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .sidebar {
+    width: 92vw;
   }
 }

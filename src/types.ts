@@ -1,6 +1,7 @@
 export type MonthStatus = 'draft' | 'published';
 export type EntryKind = 'OBJECT' | 'SPECIAL';
 export type SpecialValue = 'OFF' | 'VACATION' | 'SICK' | 'STUDY';
+export type EmployeeRole = 'mechanic' | 'trainee';
 
 export interface AdminUser {
   id: string;
@@ -15,6 +16,7 @@ export interface Employee {
   full_name: string;
   active: boolean;
   token: string;
+  role: EmployeeRole;
 }
 
 export interface WorkObject {

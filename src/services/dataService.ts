@@ -1,4 +1,4 @@
-import type { AdminUser, AppData, Employee, MonthData, ScheduleEntry, SpecialValue, VacationRequest, WorkObject } from '../types';
+import type { AdminUser, AppData, Employee, EmployeeRole, MonthData, ScheduleEntry, SpecialValue, VacationRequest, WorkObject } from '../types';
 import { firebaseConfig, isFirebaseConfigured } from './firebase';
 import { pullAppDataFromFirestore, pushAppDataToFirestore } from './firestoreRest';
 
@@ -12,6 +12,7 @@ const createId = (): string => {
 };
 
 const createToken = (): string => Math.random().toString(36).slice(2, 12);
+const DEFAULT_EMPLOYEE_ROLE: EmployeeRole = 'mechanic';
 
 const FIRESTORE_PUSH_RETRY_MS = 2000;
 const FIRESTORE_PULL_INTERVAL_MS = 2000;
@@ -26,8 +27,8 @@ export interface SyncState {
 const defaultData: AppData = {
   admins: [{ id: SUPER_ADMIN_ID, name: 'Епиванов А В', password: 'admin2026', is_super: true }],
   employees: [
-    { id: createId(), admin_id: SUPER_ADMIN_ID, full_name: 'Иванов Иван', active: true, token: createToken() },
-    { id: createId(), admin_id: SUPER_ADMIN_ID, full_name: 'Петров Петр', active: true, token: createToken() }
+    { id: createId(), admin_id: SUPER_ADMIN_ID, full_name: 'Иванов Иван', active: true, token: createToken(), role: DEFAULT_EMPLOYEE_ROLE },
+    { id: createId(), admin_id: SUPER_ADMIN_ID, full_name: 'Петров Петр', active: true, token: createToken(), role: DEFAULT_EMPLOYEE_ROLE }
   ],
   objects: [
     { id: createId(), admin_id: SUPER_ADMIN_ID, name_ru: 'Объект Север', short_ru: 'Север', active: true },
@@ -51,7 +52,7 @@ const ensureDataShape = (input: unknown): AppData => {
   return {
     admins: normalizedAdmins,
     employees: Array.isArray(maybe.employees)
-      ? maybe.employees.map((employee) => ({ ...employee, admin_id: employee.admin_id ?? SUPER_ADMIN_ID }))
+      ? maybe.employees.map((employee) => ({ ...employee, admin_id: employee.admin_id ?? SUPER_ADMIN_ID, role: employee.role ?? DEFAULT_EMPLOYEE_ROLE }))
       : [],
     objects: Array.isArray(maybe.objects)
       ? maybe.objects.map((objectItem) => ({ ...objectItem, admin_id: objectItem.admin_id ?? SUPER_ADMIN_ID }))
@@ -219,15 +220,40 @@ const validateAdminPassword = (adminId: string, password: string): boolean => {
 
 const getEmployeesByAdmin = (adminId: string): Employee[] => getFromStorage().employees.filter((employee) => employee.admin_id === adminId);
 
+const reorderEmployeesByAdmin = (adminId: string, orderedEmployeeIds: string[]): void => {
+  const data = getFromStorage();
+  const adminEmployees = data.employees.filter((employee) => employee.admin_id === adminId);
+  if (adminEmployees.length <= 1) return;
+
+  const employeesById = new Map(adminEmployees.map((employee) => [employee.id, employee]));
+  const reorderedAdminEmployees = orderedEmployeeIds
+    .map((id) => employeesById.get(id))
+    .filter((employee): employee is Employee => Boolean(employee));
+
+  if (reorderedAdminEmployees.length !== adminEmployees.length) return;
+
+  let adminIndex = 0;
+  data.employees = data.employees.map((employee) => {
+    if (employee.admin_id !== adminId) return employee;
+    const reordered = reorderedAdminEmployees[adminIndex];
+    adminIndex += 1;
+    return reordered;
+  });
+
+  setToStorage(data);
+};
+
 const getObjectsByAdmin = (adminId: string): WorkObject[] => getFromStorage().objects.filter((objectItem) => objectItem.admin_id === adminId);
 
 const upsertEmployee = (
-  payload: Omit<Employee, 'id' | 'token'> & { id?: string; token?: string; admin_id: string }
+  payload: Omit<Employee, 'id' | 'token'> & { id?: string; token?: string; admin_id: string; role?: EmployeeRole }
 ): Employee => {
   const data = getFromStorage();
   if (payload.id) {
     data.employees = data.employees.map((employee) =>
-      employee.id === payload.id ? { ...employee, full_name: payload.full_name, active: payload.active, token: payload.token ?? employee.token } : employee
+      employee.id === payload.id
+        ? { ...employee, full_name: payload.full_name, active: payload.active, token: payload.token ?? employee.token, role: payload.role ?? employee.role ?? DEFAULT_EMPLOYEE_ROLE }
+        : employee
     );
     setToStorage(data);
     return data.employees.find((item) => item.id === payload.id)!;
@@ -238,7 +264,8 @@ const upsertEmployee = (
     admin_id: payload.admin_id,
     full_name: payload.full_name,
     active: payload.active,
-    token: createToken()
+    token: createToken(),
+    role: payload.role ?? DEFAULT_EMPLOYEE_ROLE
   };
   data.employees.push(employee);
   setToStorage(data);
@@ -556,6 +583,7 @@ export const dataService = {
   removeAdmin,
   validateAdminPassword,
   getEmployeesByAdmin,
+  reorderEmployeesByAdmin,
   getObjectsByAdmin,
   getMonth,
   upsertEmployee,
