@@ -8,6 +8,7 @@ import { MePage } from './pages/MePage';
 import { ObjectsPage } from './pages/ObjectsPage';
 import { SyncDebugPage } from './pages/SyncDebugPage';
 import { VacationPage } from './pages/VacationPage';
+import { PlansPage } from './pages/PlansPage';
 import { AdminVacationsPage } from './pages/AdminVacationsPage';
 import { dataService } from './services/dataService';
 import { getAdminSessionId, getSelectedAdminId, setAdminSessionId } from './utils/adminAuth';
@@ -82,6 +83,7 @@ export const App = (): JSX.Element => {
       <Route element={<Layout />}>
         <Route path="/viewer" element={<MePage />} />
         <Route path="/vacation" element={<VacationPage />} />
+        <Route path="/plans" element={<PlansPage />} />
         <Route path="/me" element={<Navigate to="/viewer" replace />} />
 
         <Route

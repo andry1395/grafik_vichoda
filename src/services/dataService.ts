@@ -1,4 +1,4 @@
-import type { AdminUser, AppData, Employee, EmployeeRole, MonthData, ScheduleEntry, SpecialValue, VacationRequest, WorkObject } from '../types';
+import type { AdminUser, AppData, Employee, EmployeeRole, MonthData, PlanData, ScheduleEntry, SpecialValue, VacationRequest, WorkObject } from '../types';
 import { firebaseConfig, isFirebaseConfigured } from './firebase';
 import { pullAppDataFromFirestore, pushAppDataToFirestore } from './firestoreRest';
 
@@ -35,7 +35,16 @@ const defaultData: AppData = {
     { id: createId(), admin_id: SUPER_ADMIN_ID, name_ru: 'Объект Юг', short_ru: 'Юг', active: true }
   ],
   months: {},
-  vacation_requests: []
+  vacation_requests: [],
+  plans: {}
+};
+
+const defaultPlanData: PlanData = {
+  cars_target: 0,
+  avg_receipt_target: 0,
+  air_filter_ratio_target: 0,
+  cabin_filter_ratio_target: 0,
+  flush_ratio_target: 0
 };
 
 const sanitizeEntry = (entry: ScheduleEntry): ScheduleEntry => {
@@ -60,7 +69,8 @@ const ensureDataShape = (input: unknown): AppData => {
     months: maybe.months && typeof maybe.months === 'object' ? maybe.months : {},
     vacation_requests: Array.isArray(maybe.vacation_requests)
       ? maybe.vacation_requests.map((request) => ({ ...request, admin_id: request.admin_id ?? SUPER_ADMIN_ID }))
-      : []
+      : [],
+    plans: maybe.plans && typeof maybe.plans === 'object' ? maybe.plans : {}
   };
 };
 
@@ -176,6 +186,7 @@ const runInitialRemotePull = (): void => {
 };
 
 const monthStorageKey = (adminId: string, monthKey: string): string => `${adminId}__${monthKey}`;
+const planStorageKey = (adminId: string, monthKey: string): string => `${adminId}__${monthKey}`;
 
 const getMonth = (adminId: string, monthKey: string): MonthData => {
   const data = getFromStorage();
@@ -183,6 +194,23 @@ const getMonth = (adminId: string, monthKey: string): MonthData => {
 };
 
 const getEntryKey = (employeeId: string, date: string): string => `${employeeId}_${date}`;
+
+const getPlan = (adminId: string, monthKey: string): PlanData => {
+  const data = getFromStorage();
+  return data.plans[planStorageKey(adminId, monthKey)] ?? { ...defaultPlanData };
+};
+
+const setPlan = (adminId: string, monthKey: string, plan: PlanData): void => {
+  const data = getFromStorage();
+  data.plans[planStorageKey(adminId, monthKey)] = {
+    cars_target: Number.isFinite(plan.cars_target) ? plan.cars_target : 0,
+    avg_receipt_target: Number.isFinite(plan.avg_receipt_target) ? plan.avg_receipt_target : 0,
+    air_filter_ratio_target: Number.isFinite(plan.air_filter_ratio_target) ? plan.air_filter_ratio_target : 0,
+    cabin_filter_ratio_target: Number.isFinite(plan.cabin_filter_ratio_target) ? plan.cabin_filter_ratio_target : 0,
+    flush_ratio_target: Number.isFinite(plan.flush_ratio_target) ? plan.flush_ratio_target : 0
+  };
+  setToStorage(data);
+};
 
 const getAdmins = (): AdminUser[] => getFromStorage().admins;
 
@@ -209,6 +237,9 @@ const removeAdmin = (adminId: string): void => {
   data.vacation_requests = data.vacation_requests.filter((request) => request.admin_id !== adminId);
   for (const key of Object.keys(data.months)) {
     if (key.startsWith(`${adminId}__`)) delete data.months[key];
+  }
+  for (const key of Object.keys(data.plans)) {
+    if (key.startsWith(`${adminId}__`)) delete data.plans[key];
   }
   setToStorage(data);
 };
@@ -586,6 +617,7 @@ export const dataService = {
   reorderEmployeesByAdmin,
   getObjectsByAdmin,
   getMonth,
+  getPlan,
   upsertEmployee,
   upsertObject,
   removeEmployee,
@@ -593,6 +625,7 @@ export const dataService = {
   setEntry,
   clearEntry,
   setMonthStatus,
+  setPlan,
   publishMonth,
   extendMonthFromPrevious,
   getCellValue,

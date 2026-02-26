@@ -38,12 +38,21 @@ export interface MonthData {
   entries: Record<string, ScheduleEntry>;
 }
 
+export interface PlanData {
+  cars_target: number;
+  avg_receipt_target: number;
+  air_filter_ratio_target: number;
+  cabin_filter_ratio_target: number;
+  flush_ratio_target: number;
+}
+
 export interface AppData {
   admins: AdminUser[];
   employees: Employee[];
   objects: WorkObject[];
   months: Record<string, MonthData>;
   vacation_requests: VacationRequest[];
+  plans: Record<string, PlanData>;
 }
 
 export interface VacationRequest {
