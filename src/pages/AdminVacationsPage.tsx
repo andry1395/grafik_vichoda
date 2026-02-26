@@ -13,6 +13,13 @@ const rangesOverlap = (leftStart: string, leftEnd: string, rightStart: string, r
   return leftStart <= rightEnd && rightStart <= leftEnd;
 };
 
+const countOverlapDays = (leftStart: string, leftEnd: string, rightStart: string, rightEnd: string): number => {
+  const overlapStart = leftStart > rightStart ? leftStart : rightStart;
+  const overlapEnd = leftEnd < rightEnd ? leftEnd : rightEnd;
+  if (overlapStart > overlapEnd) return 0;
+  return countVacationDaysByLaborCode(overlapStart, overlapEnd);
+};
+
 export const AdminVacationsPage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
   const [notice, setNotice] = useState('');
@@ -62,20 +69,28 @@ export const AdminVacationsPage = (): JSX.Element => {
       });
   }, [monthFilter, overlapBaseRequests, sortDirection, yearFilter]);
 
-  const overlappingRequestIds = useMemo(() => {
-    const ids = new Set<string>();
+  const overlapDetailsByRequestId = useMemo(() => {
+    const details = new Map<string, string[]>();
+
     for (let i = 0; i < overlapTableRows.length; i += 1) {
       for (let j = i + 1; j < overlapTableRows.length; j += 1) {
         const left = overlapTableRows[i];
         const right = overlapTableRows[j];
         if (left.employee_id === right.employee_id) continue;
-        if (rangesOverlap(left.start_date, left.end_date, right.start_date, right.end_date)) {
-          ids.add(left.id);
-          ids.add(right.id);
-        }
+        if (!rangesOverlap(left.start_date, left.end_date, right.start_date, right.end_date)) continue;
+
+        const overlapDays = countOverlapDays(left.start_date, left.end_date, right.start_date, right.end_date);
+        if (!overlapDays) continue;
+
+        const leftText = `${right.employeeName} (${overlapDays} дн.)`;
+        const rightText = `${left.employeeName} (${overlapDays} дн.)`;
+
+        details.set(left.id, [...(details.get(left.id) ?? []), leftText]);
+        details.set(right.id, [...(details.get(right.id) ?? []), rightText]);
       }
     }
-    return ids;
+
+    return new Map(Array.from(details.entries()).map(([id, items]) => [id, Array.from(new Set(items))]));
   }, [overlapTableRows]);
 
   const exportRows = filteredRequests.map((request) => ({
@@ -90,7 +105,7 @@ export const AdminVacationsPage = (): JSX.Element => {
   const editingVacationDays = startDate && endDate ? countVacationDaysByLaborCode(startDate, endDate) : 0;
   const endDateHoverTitle =
     startDate && endDate
-      ? `Расчет отпуска: ${editingVacationDays} дн. (праздничные дни не включаются)`
+      ? `Расчет отпуска: ${editingVacationDays} дн.`
       : 'Выберите дату начала и окончания, чтобы увидеть расчет дней отпуска';
 
   return (
@@ -266,14 +281,15 @@ export const AdminVacationsPage = (): JSX.Element => {
             <th>Месяц</th>
             <th>Период</th>
             <th>Дней к оплате</th>
-            <th>Пересечение</th>
+            <th>Пересечения</th>
           </tr>
         </thead>
         <tbody>
           {overlapTableRows.map((request) => {
             const year = getYearFromDate(request.start_date);
             const monthNumber = getMonthFromMonthKey(request.month_key);
-            const hasOverlap = overlappingRequestIds.has(request.id);
+            const overlapDetails = overlapDetailsByRequestId.get(request.id) ?? [];
+            const hasOverlap = overlapDetails.length > 0;
             return (
               <tr key={request.id} className={hasOverlap ? 'vacation-overlap-row' : undefined}>
                 <td>{request.employeeName}</td>
@@ -283,7 +299,7 @@ export const AdminVacationsPage = (): JSX.Element => {
                   {formatDateDmy(request.start_date)} — {formatDateDmy(request.end_date)}
                 </td>
                 <td>{request.vacation_days}</td>
-                <td>{hasOverlap ? 'Да' : '—'}</td>
+                <td>{hasOverlap ? overlapDetails.join(', ') : '—'}</td>
               </tr>
             );
           })}
