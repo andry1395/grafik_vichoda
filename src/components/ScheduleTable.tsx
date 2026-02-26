@@ -222,6 +222,9 @@ export const ScheduleTable = ({
         <span className="legend-item">
           <span className="legend-dot legend-dot-trainee-only" /> В смене только стажер(ы)
         </span>
+        <span className="legend-item">
+          <span className="legend-dot legend-dot-too-many-mechanics" /> В смене больше 2 механиков
+        </span>
       </div>
 
       <div className="table-wrap">
@@ -258,16 +261,23 @@ export const ScheduleTable = ({
                   const assignment = value.type === 'OBJECT' ? objectAssignmentsByDate[date]?.[value.value] : undefined;
                   const isSingleEmployeeOnObject = value.type === 'OBJECT' && (assignment?.total ?? 0) === 1;
                   const isTraineeOnlyShift = value.type === 'OBJECT' && (assignment?.total ?? 0) > 0 && (assignment?.mechanics ?? 0) === 0;
+                  const isTooManyMechanicsShift = value.type === 'OBJECT' && (assignment?.mechanics ?? 0) > 2;
 
                   return (
                     <td
                       key={date}
-                      className={[isSingleEmployeeOnObject ? 'single-employee-object-day' : '', isTraineeOnlyShift ? 'trainee-only-shift-day' : '']
+                      className={[
+                        isSingleEmployeeOnObject ? 'single-employee-object-day' : '',
+                        isTraineeOnlyShift ? 'trainee-only-shift-day' : '',
+                        isTooManyMechanicsShift ? 'too-many-mechanics-shift-day' : ''
+                      ]
                         .filter(Boolean)
                         .join(' ')}
                       title={
                         isTraineeOnlyShift
                           ? 'На объект в эту смену назначены только стажеры'
+                          : isTooManyMechanicsShift
+                            ? 'На объект в эту смену назначены более 2 механиков'
                           : isSingleEmployeeOnObject
                             ? 'На объекте в эту смену только один сотрудник'
                             : undefined
