@@ -8,6 +8,24 @@ const parseDateToUtc = (value: string): number => {
   return Date.UTC(yearPart, monthPart - 1, dayPart);
 };
 
+
+const formatEmployeeDisplayName = (fullName: string): string => {
+  const parts = fullName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length < 2) {
+    return fullName;
+  }
+
+  const [surname, name, patronymic] = parts;
+  const nameInitial = `${name[0]}.`;
+  const patronymicInitial = patronymic ? `${patronymic[0]}.` : '';
+
+  return `${surname} ${nameInitial}${patronymicInitial}`;
+};
+
 interface ScheduleTableProps {
   year: number;
   month: number;
@@ -164,7 +182,7 @@ export const ScheduleTable = ({
               <option value="ALL">Все механики</option>
               {employees.map((employee) => (
                 <option key={employee.id} value={employee.id}>
-                  {employee.full_name}
+                  {formatEmployeeDisplayName(employee.full_name)}
                 </option>
               ))}
             </select>
@@ -222,6 +240,9 @@ export const ScheduleTable = ({
         <span className="legend-item">
           <span className="legend-dot legend-dot-trainee-only" /> В смене только стажер(ы)
         </span>
+        <span className="legend-item">
+          <span className="legend-dot legend-dot-too-many-mechanics" /> В смене больше 2 механиков
+        </span>
       </div>
 
       <div className="table-wrap">
@@ -250,7 +271,7 @@ export const ScheduleTable = ({
             )}
             {employees.map((employee) => (
               <tr key={employee.id}>
-                <td className="sticky-col">{employee.full_name}</td>
+                <td className="sticky-col">{formatEmployeeDisplayName(employee.full_name)}</td>
                 {dates.map((date) => {
                   const value = getCellValue(employee.id, date);
                   const objectName = value.type === 'OBJECT' ? objects.find((item) => item.id === value.value)?.short_ru ?? '—' : '';
@@ -258,16 +279,23 @@ export const ScheduleTable = ({
                   const assignment = value.type === 'OBJECT' ? objectAssignmentsByDate[date]?.[value.value] : undefined;
                   const isSingleEmployeeOnObject = value.type === 'OBJECT' && (assignment?.total ?? 0) === 1;
                   const isTraineeOnlyShift = value.type === 'OBJECT' && (assignment?.total ?? 0) > 0 && (assignment?.mechanics ?? 0) === 0;
+                  const isTooManyMechanicsShift = value.type === 'OBJECT' && (assignment?.mechanics ?? 0) > 2;
 
                   return (
                     <td
                       key={date}
-                      className={[isSingleEmployeeOnObject ? 'single-employee-object-day' : '', isTraineeOnlyShift ? 'trainee-only-shift-day' : '']
+                      className={[
+                        isSingleEmployeeOnObject ? 'single-employee-object-day' : '',
+                        isTraineeOnlyShift ? 'trainee-only-shift-day' : '',
+                        isTooManyMechanicsShift ? 'too-many-mechanics-shift-day' : ''
+                      ]
                         .filter(Boolean)
                         .join(' ')}
                       title={
                         isTraineeOnlyShift
                           ? 'На объект в эту смену назначены только стажеры'
+                          : isTooManyMechanicsShift
+                            ? 'На объект в эту смену назначены более 2 механиков'
                           : isSingleEmployeeOnObject
                             ? 'На объекте в эту смену только один сотрудник'
                             : undefined
