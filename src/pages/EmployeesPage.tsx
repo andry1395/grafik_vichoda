@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { dataService } from '../services/dataService';
+import type { EmployeeRole } from '../types';
 import { getSelectedAdminId } from '../utils/adminAuth';
 
 export const EmployeesPage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
   const [tick, setTick] = useState(0);
   const [fullName, setFullName] = useState('');
+  const [newRole, setNewRole] = useState<EmployeeRole>('mechanic');
   const [notice, setNotice] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [editingRole, setEditingRole] = useState<EmployeeRole>('mechanic');
   const [draggedEmployeeId, setDraggedEmployeeId] = useState<string | null>(null);
 
   const employees = dataService.getEmployeesByAdmin(selectedAdminId);
@@ -19,12 +22,17 @@ export const EmployeesPage = (): JSX.Element => {
       {notice && <div className="notice">{notice}</div>}
       <div className="toolbar-row">
         <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Фамилия Имя" />
+        <select value={newRole} onChange={(event) => setNewRole(event.target.value as EmployeeRole)}>
+          <option value="mechanic">Механик</option>
+          <option value="trainee">Стажер</option>
+        </select>
         <button
           type="button"
           onClick={() => {
             if (!fullName.trim()) return;
-            dataService.upsertEmployee({ admin_id: selectedAdminId, full_name: fullName.trim(), active: true });
+            dataService.upsertEmployee({ admin_id: selectedAdminId, full_name: fullName.trim(), active: true, role: newRole });
             setFullName('');
+            setNewRole('mechanic');
             setTick((value) => value + 1);
             setNotice('Сохранено');
           }}
@@ -37,6 +45,7 @@ export const EmployeesPage = (): JSX.Element => {
           <tr>
             <th>↕</th>
             <th>ФИО</th>
+            <th>Роль</th>
             <th>Токен</th>
             <th>Активность</th>
             <th>Действие</th>
@@ -72,6 +81,18 @@ export const EmployeesPage = (): JSX.Element => {
                   ⇅
                 </td>
                 <td>{isEditing ? <input value={editingName} onChange={(event) => setEditingName(event.target.value)} /> : employee.full_name}</td>
+                <td>
+                  {isEditing ? (
+                    <select value={editingRole} onChange={(event) => setEditingRole(event.target.value as EmployeeRole)}>
+                      <option value="mechanic">Механик</option>
+                      <option value="trainee">Стажер</option>
+                    </select>
+                  ) : employee.role === 'trainee' ? (
+                    'Стажер'
+                  ) : (
+                    'Механик'
+                  )}
+                </td>
                 <td>{employee.token}</td>
                 <td>{employee.active ? 'Активен' : 'Неактивен'}</td>
                 <td>
@@ -87,7 +108,8 @@ export const EmployeesPage = (): JSX.Element => {
                               admin_id: selectedAdminId,
                               full_name: editingName.trim(),
                               active: employee.active,
-                              token: employee.token
+                              token: employee.token,
+                              role: editingRole
                             });
                             setEditingId(null);
                             setTick((value) => value + 1);
@@ -106,6 +128,7 @@ export const EmployeesPage = (): JSX.Element => {
                         onClick={() => {
                           setEditingId(employee.id);
                           setEditingName(employee.full_name);
+                          setEditingRole(employee.role ?? 'mechanic');
                         }}
                       >
                         Редактировать
@@ -120,7 +143,8 @@ export const EmployeesPage = (): JSX.Element => {
                           admin_id: selectedAdminId,
                           full_name: employee.full_name,
                           active: !employee.active,
-                          token: employee.token
+                          token: employee.token,
+                          role: employee.role
                         });
                         if (editingId === employee.id) setEditingId(null);
                         setTick((value) => value + 1);

@@ -52,14 +52,22 @@ export const ScheduleTable = ({
 
 
   const objectAssignmentsByDate = useMemo(() => {
-    const assignments: Record<string, Record<string, number>> = {};
+    const assignments: Record<string, Record<string, { total: number; mechanics: number; trainees: number }>> = {};
 
     for (const date of dates) {
       assignments[date] = {};
       for (const employee of employees) {
         const cell = getCellValue(employee.id, date);
         if (cell.type !== 'OBJECT') continue;
-        assignments[date][cell.value] = (assignments[date][cell.value] ?? 0) + 1;
+
+        const current = assignments[date][cell.value] ?? { total: 0, mechanics: 0, trainees: 0 };
+        current.total += 1;
+        if (employee.role === 'trainee') {
+          current.trainees += 1;
+        } else {
+          current.mechanics += 1;
+        }
+        assignments[date][cell.value] = current;
       }
     }
 
@@ -211,6 +219,9 @@ export const ScheduleTable = ({
         <span className="legend-item">
           <span className="legend-dot legend-dot-single" /> Один сотрудник на объекте
         </span>
+        <span className="legend-item">
+          <span className="legend-dot legend-dot-trainee-only" /> В смене только стажер(ы)
+        </span>
       </div>
 
       <div className="table-wrap">
@@ -244,14 +255,23 @@ export const ScheduleTable = ({
                   const value = getCellValue(employee.id, date);
                   const objectName = value.type === 'OBJECT' ? objects.find((item) => item.id === value.value)?.short_ru ?? '—' : '';
                   const display = value.type === 'OBJECT' ? objectName : SPECIAL_LABELS[value.value];
-                  const isSingleEmployeeOnObject =
-                    value.type === 'OBJECT' && (objectAssignmentsByDate[date]?.[value.value] ?? 0) === 1;
+                  const assignment = value.type === 'OBJECT' ? objectAssignmentsByDate[date]?.[value.value] : undefined;
+                  const isSingleEmployeeOnObject = value.type === 'OBJECT' && (assignment?.total ?? 0) === 1;
+                  const isTraineeOnlyShift = value.type === 'OBJECT' && (assignment?.total ?? 0) > 0 && (assignment?.mechanics ?? 0) === 0;
 
                   return (
                     <td
                       key={date}
-                      className={isSingleEmployeeOnObject ? 'single-employee-object-day' : ''}
-                      title={isSingleEmployeeOnObject ? 'На объекте в эту смену только один сотрудник' : undefined}
+                      className={[isSingleEmployeeOnObject ? 'single-employee-object-day' : '', isTraineeOnlyShift ? 'trainee-only-shift-day' : '']
+                        .filter(Boolean)
+                        .join(' ')}
+                      title={
+                        isTraineeOnlyShift
+                          ? 'На объект в эту смену назначены только стажеры'
+                          : isSingleEmployeeOnObject
+                            ? 'На объекте в эту смену только один сотрудник'
+                            : undefined
+                      }
                     >
                       {readOnly ? (
                         <span>{display}</span>
