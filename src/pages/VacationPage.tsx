@@ -12,6 +12,13 @@ const rangesOverlap = (leftStart: string, leftEnd: string, rightStart: string, r
   return leftStart <= rightEnd && rightStart <= leftEnd;
 };
 
+const countOverlapDays = (leftStart: string, leftEnd: string, rightStart: string, rightEnd: string): number => {
+  const overlapStart = leftStart > rightStart ? leftStart : rightStart;
+  const overlapEnd = leftEnd < rightEnd ? leftEnd : rightEnd;
+  if (overlapStart > overlapEnd) return 0;
+  return countVacationDaysByLaborCode(overlapStart, overlapEnd);
+};
+
 export const VacationPage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
   const [employeeId, setEmployeeId] = useState('');
@@ -21,7 +28,7 @@ export const VacationPage = (): JSX.Element => {
   const [notice, setNotice] = useState('');
   const [yearFilter, setYearFilter] = useState<string>('all');
   const [monthFilter, setMonthFilter] = useState<string>('all');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [tableEmployeeFilter, setTableEmployeeFilter] = useState<string>('all');
 
   const monthKey = `2026-${String(month).padStart(2, '0')}`;
   const employees = useMemo(
@@ -61,35 +68,53 @@ export const VacationPage = (): JSX.Element => {
         const requestMonth = getMonthFromMonthKey(request.month_key);
         const yearMatch = yearFilter === 'all' || requestYear === Number(yearFilter);
         const monthMatch = monthFilter === 'all' || requestMonth === Number(monthFilter);
-        return yearMatch && monthMatch;
+        const employeeMatch = tableEmployeeFilter === 'all' || request.employee_id === tableEmployeeFilter;
+        return yearMatch && monthMatch && employeeMatch;
       })
-      .sort((left, right) => {
-        const cmp = left.start_date.localeCompare(right.start_date);
-        return sortDirection === 'asc' ? cmp : -cmp;
-      });
-  }, [allRequests, monthFilter, sortDirection, yearFilter]);
+      .sort((left, right) => left.start_date.localeCompare(right.start_date));
+  }, [allRequests, monthFilter, tableEmployeeFilter, yearFilter]);
 
-  const overlappingRequestIds = useMemo(() => {
-    const ids = new Set<string>();
+  const overlapDetailsByRequestId = useMemo(() => {
+    const details = new Map<string, string[]>();
+
     for (let i = 0; i < filteredRequests.length; i += 1) {
       for (let j = i + 1; j < filteredRequests.length; j += 1) {
         const left = filteredRequests[i];
         const right = filteredRequests[j];
         if (left.employee_id === right.employee_id) continue;
-        if (rangesOverlap(left.start_date, left.end_date, right.start_date, right.end_date)) {
-          ids.add(left.id);
-          ids.add(right.id);
-        }
+        if (!rangesOverlap(left.start_date, left.end_date, right.start_date, right.end_date)) continue;
+
+        const overlapDays = countOverlapDays(left.start_date, left.end_date, right.start_date, right.end_date);
+        if (!overlapDays) continue;
+
+        const leftText = `${right.employeeName} (${overlapDays} дн.)`;
+        const rightText = `${left.employeeName} (${overlapDays} дн.)`;
+
+        details.set(left.id, [...(details.get(left.id) ?? []), leftText]);
+        details.set(right.id, [...(details.get(right.id) ?? []), rightText]);
       }
     }
-    return ids;
+
+    return new Map(Array.from(details.entries()).map(([id, items]) => [id, Array.from(new Set(items))]));
   }, [filteredRequests]);
 
   const calculatedDays = startDate && endDate ? countVacationDaysByLaborCode(startDate, endDate) : 0;
   const endDateHoverTitle =
     startDate && endDate
-      ? `Расчет отпуска: ${calculatedDays} дн. (праздничные дни не включаются)`
+      ? `Расчет отпуска: ${calculatedDays} дн.`
       : 'Выберите дату начала и окончания, чтобы увидеть расчет дней отпуска';
+
+  const dateRangeError = useMemo(() => {
+    if (!startDate || !endDate) return '';
+    if (startDate > endDate) return 'Дата окончания не может быть раньше даты начала.';
+    return '';
+  }, [endDate, startDate]);
+
+  const resetTableFilters = (): void => {
+    setYearFilter('all');
+    setMonthFilter('all');
+    setTableEmployeeFilter('all');
+  };
 
   return (
     <section>
@@ -139,11 +164,18 @@ export const VacationPage = (): JSX.Element => {
             title={endDateHoverTitle}
             aria-label="Дата окончания отпуска. Наведите курсор для подсказки по количеству дней"
           />
+          {dateRangeError && <span className="field-error">{dateRangeError}</span>}
           <button
             type="button"
+            disabled={Boolean(dateRangeError)}
             onClick={() => {
               if (!startDate || !endDate) {
                 setNotice('Выберите даты начала и окончания.');
+                return;
+              }
+
+              if (dateRangeError) {
+                setNotice(dateRangeError);
                 return;
               }
 
@@ -162,7 +194,7 @@ export const VacationPage = (): JSX.Element => {
                 vacation_days: calculatedDays,
                 created_by: 'employee'
               });
-              setNotice(`Отпуск сохранен: ${calculatedDays} дн. (без праздничных дней по ст. 120 ТК РФ)`);
+              setNotice(`Отпуск сохранен: ${calculatedDays} дн.`);
               setStartDate('');
               setEndDate('');
             }}
@@ -192,18 +224,33 @@ export const VacationPage = (): JSX.Element => {
             </option>
           ))}
         </select>
-        <select value={sortDirection} onChange={(event) => setSortDirection(event.target.value as 'asc' | 'desc')}>
-          <option value="asc">Сортировка: сначала ранние</option>
-          <option value="desc">Сортировка: сначала поздние</option>
+        <select value={tableEmployeeFilter} onChange={(event) => setTableEmployeeFilter(event.target.value)}>
+          <option value="all">Все сотрудники</option>
+          {employees.map((employeeItem) => (
+            <option key={employeeItem.id} value={employeeItem.id}>
+              {employeeItem.full_name}
+            </option>
+          ))}
         </select>
+        <button type="button" onClick={resetTableFilters}>Сбросить фильтры</button>
       </div>
+
+      {(yearFilter !== 'all' || monthFilter !== 'all' || tableEmployeeFilter !== 'all') && (
+        <div className="filter-chips" aria-label="Активные фильтры">
+          {yearFilter !== 'all' && <span className="filter-chip">Год: {yearFilter}</span>}
+          {monthFilter !== 'all' && <span className="filter-chip">Месяц: {monthFilter}</span>}
+          {tableEmployeeFilter !== 'all' && (
+            <span className="filter-chip">
+              Сотрудник: {employees.find((item) => item.id === tableEmployeeFilter)?.full_name ?? '—'}
+            </span>
+          )}
+        </div>
+      )}
 
       <table className="simple-table">
         <thead>
           <tr>
             <th>Сотрудник</th>
-            <th>Год</th>
-            <th>Месяц</th>
             <th>Период</th>
             <th>Дней к оплате</th>
             <th>Пересечения</th>
@@ -211,31 +258,45 @@ export const VacationPage = (): JSX.Element => {
         </thead>
         <tbody>
           {filteredRequests.map((request) => {
-            const monthNumber = getMonthFromMonthKey(request.month_key);
-            const yearNumber = getYearFromDate(request.start_date);
-            const hasOverlap = overlappingRequestIds.has(request.id);
+            const overlapDetails = overlapDetailsByRequestId.get(request.id) ?? [];
+            const hasOverlap = overlapDetails.length > 0;
             return (
               <tr key={request.id} className={hasOverlap ? 'vacation-overlap-row' : undefined}>
                 <td>{request.employeeName}</td>
-                <td>{yearNumber}</td>
-                <td>{String(monthNumber).padStart(2, '0')}</td>
                 <td>
                   {formatDateDmy(request.start_date)} — {formatDateDmy(request.end_date)}
                 </td>
                 <td>{request.vacation_days}</td>
-                <td>{hasOverlap ? 'Есть пересечение' : '—'}</td>
+                <td>
+                  {hasOverlap ? (
+                    <div className="overlap-badges">
+                      {overlapDetails.map((detail) => (
+                        <span key={`${request.id}_${detail}`} className="overlap-badge">
+                          {detail}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    '—'
+                  )}
+                </td>
               </tr>
             );
           })}
           {filteredRequests.length === 0 && (
             <tr>
-              <td colSpan={6}>По выбранной сортировке/фильтрам отпусков нет.</td>
+              <td colSpan={4}>
+                По выбранным фильтрам отпусков нет.
+                <div>
+                  <button type="button" onClick={resetTableFilters}>Показать все записи</button>
+                </div>
+              </td>
             </tr>
           )}
         </tbody>
       </table>
 
-      {!!calculatedDays && <p>К расчету пойдет: {calculatedDays} дн. (праздничные дни не включаются, ст. 120 ТК РФ).</p>}
+      {!!calculatedDays && <p>К расчету пойдет: {calculatedDays} дн.</p>}
       {notice && <div className="notice">{notice}</div>}
     </section>
   );

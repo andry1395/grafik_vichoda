@@ -17,6 +17,7 @@ export const MePage = (): JSX.Element => {
   const [nameFilter, setNameFilter] = useState('');
   const [month, setMonth] = useState(currentMonthNumber());
   const [dayFilter, setDayFilter] = useState('');
+  const [objectFilter, setObjectFilter] = useState('ALL');
 
   const monthKey = `2026-${String(month).padStart(2, '0')}`;
   const monthData = dataService.getMonth(selectedAdminId, monthKey);
@@ -28,12 +29,24 @@ export const MePage = (): JSX.Element => {
     return Array.from({ length: count }, (_, idx) => buildDateKey(2026, month, idx + 1));
   }, [month]);
 
-  const visibleEmployees = useMemo(() => {
+  const visibleEmployeesByName = useMemo(() => {
     const normalized = nameFilter.trim().toLocaleLowerCase('ru-RU');
     const active = employeesByAdmin.filter((employee) => employee.active);
     if (!normalized) return active;
     return active.filter((employee) => employee.full_name.toLocaleLowerCase('ru-RU').includes(normalized));
   }, [employeesByAdmin, nameFilter]);
+
+  const visibleEmployees = useMemo(() => {
+    if (objectFilter === 'ALL') return visibleEmployeesByName;
+    const datesToInspect = dayFilter && dates.includes(dayFilter) ? [dayFilter] : dates;
+
+    return visibleEmployeesByName.filter((employee) =>
+      datesToInspect.some((date) => {
+        const entry = dataService.getVisibleEntryForEmployee(selectedAdminId, monthKey, employee.id, date);
+        return entry?.kind === 'OBJECT' && entry.object_id === objectFilter;
+      })
+    );
+  }, [dates, dayFilter, monthKey, objectFilter, selectedAdminId, visibleEmployeesByName]);
 
   const coverageIssues = useMemo(
     () =>
@@ -73,6 +86,12 @@ export const MePage = (): JSX.Element => {
       .map((employee) => employee.full_name);
   }, [dates, dayFilter, monthData.status, monthKey, selectedAdminId, visibleEmployees]);
 
+  const resetFilters = (): void => {
+    setNameFilter('');
+    setObjectFilter('ALL');
+    setDayFilter('');
+  };
+
   return (
     <section>
       <h1>Страница сотрудников (просмотр)</h1>
@@ -91,6 +110,14 @@ export const MePage = (): JSX.Element => {
             </option>
           ))}
         </select>
+        <select value={objectFilter} onChange={(event) => setObjectFilter(event.target.value)}>
+          <option value="ALL">Все объекты</option>
+          {objectsByAdmin.map((objectItem) => (
+            <option key={objectItem.id} value={objectItem.id}>
+              {objectItem.short_ru || objectItem.name_ru}
+            </option>
+          ))}
+        </select>
         <input
           type="date"
           min={`2026-${String(month).padStart(2, '0')}-01`}
@@ -99,6 +126,7 @@ export const MePage = (): JSX.Element => {
           onChange={(event) => setDayFilter(event.target.value)}
           placeholder="Дата"
         />
+        <button type="button" onClick={resetFilters}>Сбросить фильтры</button>
         <button
           type="button"
           onClick={() => {
@@ -115,8 +143,28 @@ export const MePage = (): JSX.Element => {
         </button>
       </div>
 
+
+      {(nameFilter || objectFilter !== 'ALL' || dayFilter) && (
+        <div className="filter-chips" aria-label="Активные фильтры">
+          {nameFilter && <span className="filter-chip">Имя: {nameFilter}</span>}
+          {objectFilter !== 'ALL' && (
+            <span className="filter-chip">
+              Объект: {objectsByAdmin.find((item) => item.id === objectFilter)?.short_ru || objectsByAdmin.find((item) => item.id === objectFilter)?.name_ru || '—'}
+            </span>
+          )}
+          {dayFilter && <span className="filter-chip">Дата: {dayFilter}</span>}
+        </div>
+      )}
+
       {monthData.status !== 'published' && <p>График еще не опубликован</p>}
-      {monthData.status === 'published' && visibleEmployees.length === 0 && <p>Сотрудники не найдены.</p>}
+      {monthData.status === 'published' && visibleEmployees.length === 0 && (
+        <div className="notice notice-error">
+          Сотрудники не найдены по текущим фильтрам.
+          <div>
+            <button type="button" onClick={resetFilters}>Показать всех</button>
+          </div>
+        </div>
+      )}
 
       {monthData.status === 'published' && visibleEmployees.length > 0 && (
         <>
