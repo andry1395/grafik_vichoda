@@ -50,6 +50,22 @@ export const ScheduleTable = ({
     return allDates.includes(selectedDate) ? [selectedDate] : allDates;
   }, [allDates, selectedDate]);
 
+
+  const objectAssignmentsByDate = useMemo(() => {
+    const assignments: Record<string, Record<string, number>> = {};
+
+    for (const date of dates) {
+      assignments[date] = {};
+      for (const employee of employees) {
+        const cell = getCellValue(employee.id, date);
+        if (cell.type !== 'OBJECT') continue;
+        assignments[date][cell.value] = (assignments[date][cell.value] ?? 0) + 1;
+      }
+    }
+
+    return assignments;
+  }, [dates, employees, getCellValue]);
+
   const [massValue, setMassValue] = useState<string>('SPECIAL:OFF');
   const [bulkEmployee, setBulkEmployee] = useState<string>('ALL');
   const [bulkFromDate, setBulkFromDate] = useState<string>(allDates[0] ?? '');
@@ -216,9 +232,15 @@ export const ScheduleTable = ({
                   const value = getCellValue(employee.id, date);
                   const objectName = value.type === 'OBJECT' ? objects.find((item) => item.id === value.value)?.short_ru ?? '—' : '';
                   const display = value.type === 'OBJECT' ? objectName : SPECIAL_LABELS[value.value];
+                  const isSingleEmployeeOnObject =
+                    value.type === 'OBJECT' && (objectAssignmentsByDate[date]?.[value.value] ?? 0) === 1;
 
                   return (
-                    <td key={date}>
+                    <td
+                      key={date}
+                      className={isSingleEmployeeOnObject ? 'single-employee-object-day' : ''}
+                      title={isSingleEmployeeOnObject ? 'На объекте в эту смену только один сотрудник' : undefined}
+                    >
                       {readOnly ? (
                         <span>{display}</span>
                       ) : (

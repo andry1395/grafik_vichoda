@@ -17,6 +17,7 @@ export const MePage = (): JSX.Element => {
   const [nameFilter, setNameFilter] = useState('');
   const [month, setMonth] = useState(currentMonthNumber());
   const [dayFilter, setDayFilter] = useState('');
+  const [objectFilter, setObjectFilter] = useState('ALL');
 
   const monthKey = `2026-${String(month).padStart(2, '0')}`;
   const monthData = dataService.getMonth(selectedAdminId, monthKey);
@@ -28,12 +29,24 @@ export const MePage = (): JSX.Element => {
     return Array.from({ length: count }, (_, idx) => buildDateKey(2026, month, idx + 1));
   }, [month]);
 
-  const visibleEmployees = useMemo(() => {
+  const visibleEmployeesByName = useMemo(() => {
     const normalized = nameFilter.trim().toLocaleLowerCase('ru-RU');
     const active = employeesByAdmin.filter((employee) => employee.active);
     if (!normalized) return active;
     return active.filter((employee) => employee.full_name.toLocaleLowerCase('ru-RU').includes(normalized));
   }, [employeesByAdmin, nameFilter]);
+
+  const visibleEmployees = useMemo(() => {
+    if (objectFilter === 'ALL') return visibleEmployeesByName;
+    const datesToInspect = dayFilter && dates.includes(dayFilter) ? [dayFilter] : dates;
+
+    return visibleEmployeesByName.filter((employee) =>
+      datesToInspect.some((date) => {
+        const entry = dataService.getVisibleEntryForEmployee(selectedAdminId, monthKey, employee.id, date);
+        return entry?.kind === 'OBJECT' && entry.object_id === objectFilter;
+      })
+    );
+  }, [dates, dayFilter, monthKey, objectFilter, selectedAdminId, visibleEmployeesByName]);
 
   const coverageIssues = useMemo(
     () =>
@@ -88,6 +101,14 @@ export const MePage = (): JSX.Element => {
           {MONTHS_2026.map((value) => (
             <option key={value} value={value}>
               {String(value).padStart(2, '0')}.2026
+            </option>
+          ))}
+        </select>
+        <select value={objectFilter} onChange={(event) => setObjectFilter(event.target.value)}>
+          <option value="ALL">Все объекты</option>
+          {objectsByAdmin.map((objectItem) => (
+            <option key={objectItem.id} value={objectItem.id}>
+              {objectItem.short_ru || objectItem.name_ru}
             </option>
           ))}
         </select>
