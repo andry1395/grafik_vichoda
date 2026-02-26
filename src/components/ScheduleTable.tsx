@@ -8,6 +8,24 @@ const parseDateToUtc = (value: string): number => {
   return Date.UTC(yearPart, monthPart - 1, dayPart);
 };
 
+
+const formatEmployeeDisplayName = (fullName: string): string => {
+  const parts = fullName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length < 2) {
+    return fullName;
+  }
+
+  const [surname, name, patronymic] = parts;
+  const nameInitial = `${name[0]}.`;
+  const patronymicInitial = patronymic ? `${patronymic[0]}.` : '';
+
+  return `${surname} ${nameInitial}${patronymicInitial}`;
+};
+
 interface ScheduleTableProps {
   year: number;
   month: number;
@@ -164,7 +182,7 @@ export const ScheduleTable = ({
               <option value="ALL">Все механики</option>
               {employees.map((employee) => (
                 <option key={employee.id} value={employee.id}>
-                  {employee.full_name}
+                  {formatEmployeeDisplayName(employee.full_name)}
                 </option>
               ))}
             </select>
@@ -253,7 +271,7 @@ export const ScheduleTable = ({
             )}
             {employees.map((employee) => (
               <tr key={employee.id}>
-                <td className="sticky-col">{employee.full_name}</td>
+                <td className="sticky-col">{formatEmployeeDisplayName(employee.full_name)}</td>
                 {dates.map((date) => {
                   const value = getCellValue(employee.id, date);
                   const objectName = value.type === 'OBJECT' ? objects.find((item) => item.id === value.value)?.short_ru ?? '—' : '';
