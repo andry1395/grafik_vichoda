@@ -187,6 +187,11 @@ button:active {
   box-shadow: inset 0 0 0 1px #e11d48;
 }
 
+.schedule-table td.too-many-mechanics-shift-day {
+  background: #dbeafe;
+  box-shadow: inset 0 0 0 1px #2563eb;
+}
+
 .schedule-table td select {
   width: 100%;
   min-width: 120px;
@@ -301,6 +306,11 @@ button:active {
 .legend-dot-trainee-only {
   background: #ffe4e6;
   border: 1px solid #e11d48;
+}
+
+.legend-dot-too-many-mechanics {
+  background: #dbeafe;
+  border: 1px solid #2563eb;
 }
 
 .filter-chips {
