@@ -9,6 +9,7 @@ export const EmployeesPage = (): JSX.Element => {
   const [notice, setNotice] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [draggedEmployeeId, setDraggedEmployeeId] = useState<string | null>(null);
 
   const employees = dataService.getEmployeesByAdmin(selectedAdminId);
 
@@ -34,6 +35,7 @@ export const EmployeesPage = (): JSX.Element => {
       <table className="simple-table" key={tick}>
         <thead>
           <tr>
+            <th>↕</th>
             <th>ФИО</th>
             <th>Токен</th>
             <th>Активность</th>
@@ -45,6 +47,30 @@ export const EmployeesPage = (): JSX.Element => {
             const isEditing = editingId === employee.id;
             return (
               <tr key={employee.id}>
+                <td
+                  draggable={!isEditing}
+                  onDragStart={() => setDraggedEmployeeId(employee.id)}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                  }}
+                  onDrop={() => {
+                    if (!draggedEmployeeId || draggedEmployeeId === employee.id) return;
+                    const orderedIds = employees.map((item) => item.id);
+                    const fromIndex = orderedIds.indexOf(draggedEmployeeId);
+                    const toIndex = orderedIds.indexOf(employee.id);
+                    if (fromIndex < 0 || toIndex < 0) return;
+                    orderedIds.splice(fromIndex, 1);
+                    orderedIds.splice(toIndex, 0, draggedEmployeeId);
+                    dataService.reorderEmployeesByAdmin(selectedAdminId, orderedIds);
+                    setTick((value) => value + 1);
+                    setNotice('Порядок сотрудников обновлен');
+                    setDraggedEmployeeId(null);
+                  }}
+                  onDragEnd={() => setDraggedEmployeeId(null)}
+                  title="Перетащите, чтобы изменить порядок"
+                >
+                  ⇅
+                </td>
                 <td>{isEditing ? <input value={editingName} onChange={(event) => setEditingName(event.target.value)} /> : employee.full_name}</td>
                 <td>{employee.token}</td>
                 <td>{employee.active ? 'Активен' : 'Неактивен'}</td>
