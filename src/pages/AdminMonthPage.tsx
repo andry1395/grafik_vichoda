@@ -18,11 +18,9 @@ export const AdminMonthPage = (): JSX.Element => {
   const [notice, setNotice] = useState<string>('');
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [dayFilter, setDayFilter] = useState('');
+  const [objectFilter, setObjectFilter] = useState('ALL');
 
   const activeEmployees = dataService.getEmployeesByAdmin(selectedAdminId).filter((employee) => employee.active);
-  const employees = activeEmployees.filter((employee) =>
-    employee.full_name.toLocaleLowerCase('ru-RU').includes(employeeSearch.trim().toLocaleLowerCase('ru-RU'))
-  );
   const objects = dataService.getObjectsByAdmin(selectedAdminId);
   const monthData = dataService.getMonth(selectedAdminId, monthKey);
   const vacationRequestsInMonth = dataService
@@ -38,6 +36,25 @@ export const AdminMonthPage = (): JSX.Element => {
     return Array.from({ length: count }, (_, idx) => buildDateKey(2026, month, idx + 1));
   }, [month, tick]);
 
+  const employeesByName = useMemo(
+    () =>
+      activeEmployees.filter((employee) =>
+        employee.full_name.toLocaleLowerCase('ru-RU').includes(employeeSearch.trim().toLocaleLowerCase('ru-RU'))
+      ),
+    [activeEmployees, employeeSearch]
+  );
+
+  const employees = useMemo(() => {
+    if (objectFilter === 'ALL') return employeesByName;
+    const datesToInspect = dayFilter && dates.includes(dayFilter) ? [dayFilter] : dates;
+    return employeesByName.filter((employee) =>
+      datesToInspect.some((date) => {
+        const cell = dataService.getCellValue(selectedAdminId, monthKey, employee.id, date);
+        return cell.type === 'OBJECT' && cell.value === objectFilter;
+      })
+    );
+  }, [dates, dayFilter, employeesByName, monthKey, objectFilter, selectedAdminId, tick]);
+
   const coverageIssues = useMemo(
     () =>
       getCoverageIssues({
@@ -52,7 +69,7 @@ export const AdminMonthPage = (): JSX.Element => {
 
   const workDaysByMechanic = useMemo(
     () =>
-      activeEmployees.map((employee) => {
+      employees.map((employee) => {
         const workDays = dates.reduce((total, date) => {
           const cell = dataService.getCellValue(selectedAdminId, monthKey, employee.id, date);
           return cell.type === 'OBJECT' ? total + 1 : total;
@@ -64,15 +81,15 @@ export const AdminMonthPage = (): JSX.Element => {
           workDays
         };
       }),
-    [activeEmployees, dates, monthKey, selectedAdminId, tick]
+    [dates, employees, monthKey, selectedAdminId, tick]
   );
 
   const offMechanicsOnDate = useMemo(() => {
     if (!dayFilter || !dates.includes(dayFilter)) return [];
-    return activeEmployees
+    return employees
       .filter((employee) => dataService.getCellValue(selectedAdminId, monthKey, employee.id, dayFilter).type === 'SPECIAL')
       .map((employee) => employee.full_name);
-  }, [activeEmployees, dates, dayFilter, monthKey, selectedAdminId, tick]);
+  }, [dates, dayFilter, employees, monthKey, selectedAdminId, tick]);
 
   const rerender = (message: string): void => {
     setTick((value) => value + 1);
@@ -104,6 +121,14 @@ export const AdminMonthPage = (): JSX.Element => {
           onChange={(event) => setEmployeeSearch(event.target.value)}
           placeholder="Поиск сотрудника по имени"
         />
+        <select value={objectFilter} onChange={(event) => setObjectFilter(event.target.value)}>
+          <option value="ALL">Все объекты</option>
+          {objects.map((objectItem) => (
+            <option key={objectItem.id} value={objectItem.id}>
+              {objectItem.short_ru || objectItem.name_ru}
+            </option>
+          ))}
+        </select>
         <input
           type="date"
           min={`2026-${String(month).padStart(2, '0')}-01`}
