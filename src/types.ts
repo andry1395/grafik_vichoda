@@ -43,7 +43,17 @@ export interface AppData {
   employees: Employee[];
   objects: WorkObject[];
   months: Record<string, MonthData>;
+  plans: Record<string, PlanMetrics>;
   vacation_requests: VacationRequest[];
+}
+
+export interface PlanMetrics {
+  month_key: string;
+  car_entries_plan: number | null;
+  average_check_plan: number | null;
+  air_filter_ratio_plan: number | null;
+  cabin_filter_ratio_plan: number | null;
+  flush_usage_ratio_plan: number | null;
 }
 
 export interface VacationRequest {
