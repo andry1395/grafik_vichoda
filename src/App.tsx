@@ -9,8 +9,10 @@ import { ObjectsPage } from './pages/ObjectsPage';
 import { SyncDebugPage } from './pages/SyncDebugPage';
 import { VacationPage } from './pages/VacationPage';
 import { AdminVacationsPage } from './pages/AdminVacationsPage';
+import { PlansPage } from './pages/PlansPage';
 import { dataService } from './services/dataService';
 import { getAdminSessionId, getSelectedAdminId, setAdminSessionId } from './utils/adminAuth';
+import { featureFlags } from './utils/featureFlags';
 
 const AdminGate = ({ children, superOnly = false }: { children: JSX.Element; superOnly?: boolean }): JSX.Element => {
   const [password, setPassword] = useState('');
@@ -124,6 +126,18 @@ export const App = (): JSX.Element => {
             </AdminGate>
           }
         />
+        {featureFlags.plansPage && (
+          <Route
+            path="/admin/plans"
+            element={
+              <AdminGate superOnly>
+                <PlansPage />
+              </AdminGate>
+            }
+          />
+        )}
+
+
         <Route
           path="/admin/admins"
           element={
