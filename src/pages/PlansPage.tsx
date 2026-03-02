@@ -66,7 +66,7 @@ const calculateRatioFromCount = (base: number | null, count: number | null): num
   return (count / base) * 100;
 };
 
-const formatDeviation = (plan: number | null, fact: number | null, unit: string): string => {
+const formatDeviationValue = (plan: number | null, fact: number | null, unit: string): string => {
   if (plan === null || fact === null) return '—';
   const delta = fact - plan;
   const deltaSign = delta > 0 ? '+' : '';
@@ -77,6 +77,21 @@ const formatDeviation = (plan: number | null, fact: number | null, unit: string)
   const pct = (delta / plan) * 100;
   const pctSign = pct > 0 ? '+' : '';
   return `${absPart}; ${pctSign}${formatNumber(pct)}%`;
+};
+
+const formatDeviationForRow = (row: MetricRow, metrics: ReturnType<typeof dataService.getPlanMetrics>): string => {
+  const planKey = `${row.key}_plan` as const;
+  const factKey = `${row.key}_fact` as const;
+  const planValue = metrics[planKey];
+  const factValue = metrics[factKey];
+
+  const ratioDeviation = formatDeviationValue(planValue, factValue, row.unit);
+  if (!row.isRatioFromCarEntries) return ratioDeviation;
+
+  const planCount = calculateCountFromRatio(metrics.car_entries_plan, planValue);
+  const factCount = calculateCountFromRatio(metrics.car_entries_fact, factValue);
+  const countDeviation = formatDeviationValue(planCount, factCount, 'шт');
+  return `${ratioDeviation} | ${countDeviation}`;
 };
 
 export const PlansPage = (): JSX.Element => {
@@ -229,7 +244,7 @@ export const PlansPage = (): JSX.Element => {
                     }}
                   />
 
-                  <td>{formatDeviation(planValue, factValue, row.unit)}</td>
+                  <td>{formatDeviationForRow(row, metrics)}</td>
                 </tr>
               );
             })}
