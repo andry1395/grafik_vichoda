@@ -254,6 +254,7 @@ const plansStorageKey = (adminId: string, objectId: string, monthKey: string): s
 
 const getPlanMetrics = (adminId: string, objectId: string, monthKey: string): PlanMetrics => {
   const fromStorage = getFromStorage().plans[plansStorageKey(adminId, objectId, monthKey)];
+  const legacy = fromStorage as (PlanMetrics & { additional_services_ratio_plan?: number | null; additional_services_ratio_fact?: number | null }) | undefined;
   return {
     month_key: monthKey,
     object_id: objectId,
@@ -273,8 +274,8 @@ const getPlanMetrics = (adminId: string, objectId: string, monthKey: string): Pl
     partial_replacement_ratio_fact: fromStorage?.partial_replacement_ratio_fact ?? null,
     technical_fluids_ratio_plan: fromStorage?.technical_fluids_ratio_plan ?? null,
     technical_fluids_ratio_fact: fromStorage?.technical_fluids_ratio_fact ?? null,
-    additional_services_amount_plan: fromStorage?.additional_services_amount_plan ?? fromStorage?.additional_services_ratio_plan ?? null,
-    additional_services_amount_fact: fromStorage?.additional_services_amount_fact ?? fromStorage?.additional_services_ratio_fact ?? null
+    additional_services_amount_plan: fromStorage?.additional_services_amount_plan ?? legacy?.additional_services_ratio_plan ?? null,
+    additional_services_amount_fact: fromStorage?.additional_services_amount_fact ?? legacy?.additional_services_ratio_fact ?? null
   };
 };
 
