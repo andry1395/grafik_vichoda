@@ -1,4 +1,4 @@
-import type { AdminUser, AppData, Employee, EmployeeRole, MonthData, ScheduleEntry, SpecialValue, VacationRequest, WorkObject } from '../types';
+import type { AdminUser, AppData, Employee, EmployeeRole, MonthData, PlanMetrics, PlanRatioDefaults, ScheduleEntry, SpecialValue, VacationRequest, WorkObject } from '../types';
 import { firebaseConfig, isFirebaseConfigured } from './firebase';
 import { pullAppDataFromFirestore, pushAppDataToFirestore } from './firestoreRest';
 
@@ -35,6 +35,8 @@ const defaultData: AppData = {
     { id: createId(), admin_id: SUPER_ADMIN_ID, name_ru: 'Объект Юг', short_ru: 'Юг', active: true }
   ],
   months: {},
+  plans: {},
+  plan_ratio_defaults: {},
   vacation_requests: []
 };
 
@@ -58,6 +60,8 @@ const ensureDataShape = (input: unknown): AppData => {
       ? maybe.objects.map((objectItem) => ({ ...objectItem, admin_id: objectItem.admin_id ?? SUPER_ADMIN_ID }))
       : [],
     months: maybe.months && typeof maybe.months === 'object' ? maybe.months : {},
+    plans: maybe.plans && typeof maybe.plans === 'object' ? maybe.plans : {},
+    plan_ratio_defaults: maybe.plan_ratio_defaults && typeof maybe.plan_ratio_defaults === 'object' ? maybe.plan_ratio_defaults : {},
     vacation_requests: Array.isArray(maybe.vacation_requests)
       ? maybe.vacation_requests.map((request) => ({ ...request, admin_id: request.admin_id ?? SUPER_ADMIN_ID }))
       : []
@@ -210,6 +214,10 @@ const removeAdmin = (adminId: string): void => {
   for (const key of Object.keys(data.months)) {
     if (key.startsWith(`${adminId}__`)) delete data.months[key];
   }
+  for (const key of Object.keys(data.plans)) {
+    if (key.startsWith(`${adminId}__`)) delete data.plans[key];
+  }
+  delete data.plan_ratio_defaults[adminId];
   setToStorage(data);
 };
 
@@ -244,6 +252,68 @@ const reorderEmployeesByAdmin = (adminId: string, orderedEmployeeIds: string[]):
 };
 
 const getObjectsByAdmin = (adminId: string): WorkObject[] => getFromStorage().objects.filter((objectItem) => objectItem.admin_id === adminId);
+
+const plansStorageKey = (adminId: string, objectId: string, monthKey: string): string => `${adminId}__${objectId}__${monthKey}`;
+
+const getPlanRatioDefaults = (adminId: string): PlanRatioDefaults => {
+  const defaults = getFromStorage().plan_ratio_defaults[adminId];
+  return {
+    air_filter_ratio: defaults?.air_filter_ratio ?? null,
+    cabin_filter_ratio: defaults?.cabin_filter_ratio ?? null,
+    flush_usage_ratio: defaults?.flush_usage_ratio ?? null,
+    akpp_ratio: defaults?.akpp_ratio ?? null,
+    partial_replacement_ratio: defaults?.partial_replacement_ratio ?? null,
+    technical_fluids_ratio: defaults?.technical_fluids_ratio ?? null
+  };
+};
+
+const upsertPlanRatioDefaults = (adminId: string, payload: PlanRatioDefaults): PlanRatioDefaults => {
+  const data = getFromStorage();
+  data.plan_ratio_defaults[adminId] = { ...payload };
+  setToStorage(data);
+  return data.plan_ratio_defaults[adminId];
+};
+
+const getPlanMetrics = (adminId: string, objectId: string, monthKey: string): PlanMetrics => {
+  const fromStorage = getFromStorage().plans[plansStorageKey(adminId, objectId, monthKey)];
+  const defaults = getPlanRatioDefaults(adminId);
+  const legacy = fromStorage as (PlanMetrics & { additional_services_ratio_plan?: number | null; additional_services_ratio_fact?: number | null }) | undefined;
+  return {
+    month_key: monthKey,
+    object_id: objectId,
+    car_entries_plan: fromStorage?.car_entries_plan ?? null,
+    car_entries_fact: fromStorage?.car_entries_fact ?? null,
+    average_check_plan: fromStorage?.average_check_plan ?? null,
+    average_check_fact: fromStorage?.average_check_fact ?? null,
+    air_filter_ratio_plan: fromStorage?.air_filter_ratio_plan ?? defaults.air_filter_ratio,
+    air_filter_ratio_fact: fromStorage?.air_filter_ratio_fact ?? defaults.air_filter_ratio,
+    cabin_filter_ratio_plan: fromStorage?.cabin_filter_ratio_plan ?? defaults.cabin_filter_ratio,
+    cabin_filter_ratio_fact: fromStorage?.cabin_filter_ratio_fact ?? defaults.cabin_filter_ratio,
+    flush_usage_ratio_plan: fromStorage?.flush_usage_ratio_plan ?? defaults.flush_usage_ratio,
+    flush_usage_ratio_fact: fromStorage?.flush_usage_ratio_fact ?? defaults.flush_usage_ratio,
+    akpp_ratio_plan: fromStorage?.akpp_ratio_plan ?? defaults.akpp_ratio,
+    akpp_ratio_fact: fromStorage?.akpp_ratio_fact ?? defaults.akpp_ratio,
+    partial_replacement_ratio_plan: fromStorage?.partial_replacement_ratio_plan ?? defaults.partial_replacement_ratio,
+    partial_replacement_ratio_fact: fromStorage?.partial_replacement_ratio_fact ?? defaults.partial_replacement_ratio,
+    technical_fluids_ratio_plan: fromStorage?.technical_fluids_ratio_plan ?? defaults.technical_fluids_ratio,
+    technical_fluids_ratio_fact: fromStorage?.technical_fluids_ratio_fact ?? defaults.technical_fluids_ratio,
+    additional_services_amount_plan: fromStorage?.additional_services_amount_plan ?? legacy?.additional_services_ratio_plan ?? null,
+    additional_services_amount_fact: fromStorage?.additional_services_amount_fact ?? legacy?.additional_services_ratio_fact ?? null
+  };
+};
+
+const upsertPlanMetrics = (
+  adminId: string,
+  objectId: string,
+  monthKey: string,
+  payload: Omit<PlanMetrics, 'month_key' | 'object_id'>
+): PlanMetrics => {
+  const data = getFromStorage();
+  const metrics: PlanMetrics = { month_key: monthKey, object_id: objectId, ...payload };
+  data.plans[plansStorageKey(adminId, objectId, monthKey)] = metrics;
+  setToStorage(data);
+  return metrics;
+};
 
 const upsertEmployee = (
   payload: Omit<Employee, 'id' | 'token'> & { id?: string; token?: string; admin_id: string; role?: EmployeeRole }
@@ -585,6 +655,10 @@ export const dataService = {
   getEmployeesByAdmin,
   reorderEmployeesByAdmin,
   getObjectsByAdmin,
+  getPlanRatioDefaults,
+  upsertPlanRatioDefaults,
+  getPlanMetrics,
+  upsertPlanMetrics,
   getMonth,
   upsertEmployee,
   upsertObject,

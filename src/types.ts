@@ -43,7 +43,41 @@ export interface AppData {
   employees: Employee[];
   objects: WorkObject[];
   months: Record<string, MonthData>;
+  plans: Record<string, PlanMetrics>;
+  plan_ratio_defaults: Record<string, PlanRatioDefaults>;
   vacation_requests: VacationRequest[];
+}
+
+export interface PlanRatioDefaults {
+  air_filter_ratio: number | null;
+  cabin_filter_ratio: number | null;
+  flush_usage_ratio: number | null;
+  akpp_ratio: number | null;
+  partial_replacement_ratio: number | null;
+  technical_fluids_ratio: number | null;
+}
+
+export interface PlanMetrics {
+  month_key: string;
+  object_id: string;
+  car_entries_plan: number | null;
+  car_entries_fact: number | null;
+  average_check_plan: number | null;
+  average_check_fact: number | null;
+  air_filter_ratio_plan: number | null;
+  air_filter_ratio_fact: number | null;
+  cabin_filter_ratio_plan: number | null;
+  cabin_filter_ratio_fact: number | null;
+  flush_usage_ratio_plan: number | null;
+  flush_usage_ratio_fact: number | null;
+  akpp_ratio_plan: number | null;
+  akpp_ratio_fact: number | null;
+  partial_replacement_ratio_plan: number | null;
+  partial_replacement_ratio_fact: number | null;
+  technical_fluids_ratio_plan: number | null;
+  technical_fluids_ratio_fact: number | null;
+  additional_services_amount_plan: number | null;
+  additional_services_amount_fact: number | null;
 }
 
 export interface VacationRequest {
