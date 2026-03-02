@@ -4,6 +4,13 @@ import { getAdminSessionId } from '../utils/adminAuth';
 
 const PLAN_MONTHS = Array.from({ length: 12 }, (_, index) => `2026-${String(index + 1).padStart(2, '0')}`);
 
+
+const getDefaultMonthKey = (): string => {
+  const now = new Date();
+  const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return PLAN_MONTHS.includes(key) ? key : PLAN_MONTHS[0];
+};
+
 type MetricRow = {
   key: 'car_entries' | 'average_check' | 'air_filter_ratio' | 'cabin_filter_ratio' | 'flush_usage_ratio';
   label: string;
@@ -60,7 +67,7 @@ const formatDeviation = (plan: number | null, fact: number | null, unit: string)
 export const PlansPage = (): JSX.Element => {
   const admins = dataService.getAdmins();
   const [selectedAdminId, setSelectedAdminId] = useState(admins[0]?.id ?? dataService.SUPER_ADMIN_ID);
-  const [selectedMonthKey, setSelectedMonthKey] = useState(PLAN_MONTHS[0]);
+  const [selectedMonthKey, setSelectedMonthKey] = useState(getDefaultMonthKey);
   const [selectedObjectId, setSelectedObjectId] = useState('');
   const sessionAdminId = getAdminSessionId();
 
