@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom';
 import { MONTHS_2026 } from '../utils/constants';
 import { clearAdminSession, getSelectedAdminId, setSelectedAdminId } from '../utils/adminAuth';
 import { dataService } from '../services/dataService';
+import { featureFlags } from '../utils/featureFlags';
 import './Layout.css';
 
 export const Layout = (): JSX.Element => {
@@ -10,6 +11,7 @@ export const Layout = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const syncState = dataService.getSyncState();
+  const selectedAdmin = admins.find((admin) => admin.id === selectedAdminId);
 
   const syncLabel = useMemo(() => {
     if (!syncState.configured) return '⚠️ Firebase не настроен (работа только локально)';
@@ -116,6 +118,11 @@ export const Layout = (): JSX.Element => {
             <NavLink to="/admin/vacations" onClick={closeSidebarOnMobile}>
               Отпуска
             </NavLink>
+            {selectedAdmin?.is_super && featureFlags.plansPage && (
+              <NavLink to="/admin/plans" onClick={closeSidebarOnMobile}>
+                Планы
+              </NavLink>
+            )}
             <NavLink to="/admin/admins" onClick={closeSidebarOnMobile}>
               Админы
             </NavLink>
