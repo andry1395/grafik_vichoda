@@ -51,6 +51,12 @@ const formatNumber = (value: number): string =>
     maximumFractionDigits: 2
   }).format(value);
 
+
+const parseNumericToken = (value: string): number | null => {
+  const cleaned = value.replace(/шт|%/gi, '').trim();
+  return parseNumberOrNull(cleaned);
+};
+
 const calculateCountFromRatio = (base: number | null, ratio: number | null): number | null => {
   if (base === null || ratio === null) return null;
   return (base * ratio) / 100;
@@ -64,8 +70,8 @@ const calculateRatioFromCount = (base: number | null, count: number | null): num
 const formatRatioCellValue = (ratio: number | null, base: number | null): string => {
   if (ratio === null && base === null) return '';
   const count = calculateCountFromRatio(base, ratio);
-  const ratioText = ratio === null ? '' : formatNumber(ratio);
-  const countText = count === null ? '' : formatNumber(count);
+  const ratioText = ratio === null ? '' : `${formatNumber(ratio)}%`;
+  const countText = count === null ? '' : `${formatNumber(count)} шт`;
   if (!ratioText && !countText) return '';
   return `${ratioText} / ${countText}`;
 };
@@ -74,13 +80,13 @@ const parseRatioInputToPercent = (value: string, base: number | null): number | 
   const normalized = value.trim();
   if (!normalized) return null;
 
-  if (!normalized.includes('/')) return parseNumberOrNull(normalized);
+  if (!normalized.includes('/')) return parseNumericToken(normalized);
 
   const [leftRaw, rightRaw] = normalized.split('/').map((item) => item.trim());
-  const percentPart = parseNumberOrNull(leftRaw);
+  const percentPart = parseNumericToken(leftRaw);
   if (percentPart !== null) return percentPart;
 
-  const quantityPart = parseNumberOrNull(rightRaw);
+  const quantityPart = parseNumericToken(rightRaw);
   return calculateRatioFromCount(base, quantityPart);
 };
 
@@ -293,7 +299,7 @@ const RatioCell = ({
         inputMode="decimal"
         value={draft}
         disabled={disabled}
-        placeholder={base === null ? 'Сначала заполните машинозаезды' : '% / кол-во'}
+        placeholder={base === null ? 'Сначала заполните машинозаезды' : '30% / 30 шт'}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={() => onSave(draft)}
       />
