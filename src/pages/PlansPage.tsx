@@ -4,7 +4,6 @@ import { getAdminSessionId } from '../utils/adminAuth';
 
 const PLAN_MONTHS = Array.from({ length: 12 }, (_, index) => `2026-${String(index + 1).padStart(2, '0')}`);
 
-
 const toPlanPayload = (metrics: ReturnType<typeof dataService.getPlanMetrics>) => ({
   car_entries_plan: metrics.car_entries_plan,
   average_check_plan: metrics.average_check_plan,
@@ -16,15 +15,12 @@ const toPlanPayload = (metrics: ReturnType<typeof dataService.getPlanMetrics>) =
 export const PlansPage = (): JSX.Element => {
   const admins = dataService.getAdmins();
   const [selectedAdminId, setSelectedAdminId] = useState(admins[0]?.id ?? dataService.SUPER_ADMIN_ID);
+  const [selectedMonthKey, setSelectedMonthKey] = useState(PLAN_MONTHS[0]);
   const sessionAdminId = getAdminSessionId();
 
   const canEdit = sessionAdminId === selectedAdminId;
   const selectedAdminName = admins.find((admin) => admin.id === selectedAdminId)?.name ?? '—';
-
-  const rows = PLAN_MONTHS.map((monthKey) => ({
-    monthKey,
-    metrics: dataService.getPlanMetrics(selectedAdminId, monthKey)
-  }));
+  const metrics = dataService.getPlanMetrics(selectedAdminId, selectedMonthKey);
 
   const parseNumberOrNull = (value: string): number | null => {
     const trimmed = value.trim();
@@ -36,7 +32,7 @@ export const PlansPage = (): JSX.Element => {
   return (
     <section>
       <h1>Планы</h1>
-      <p>Плановые показатели по машинозаездам, среднему чеку и доп. услугам по каждому администратору.</p>
+      <p>Плановые показатели по машинозаездам, среднему чеку и доп. услугам. Отображение помесячное.</p>
 
       <div className="toolbar-row">
         <label htmlFor="plan-admin-select">Администратор:</label>
@@ -44,6 +40,15 @@ export const PlansPage = (): JSX.Element => {
           {admins.map((admin) => (
             <option key={admin.id} value={admin.id}>
               {admin.name}
+            </option>
+          ))}
+        </select>
+
+        <label htmlFor="plan-month-select">Месяц:</label>
+        <select id="plan-month-select" value={selectedMonthKey} onChange={(event) => setSelectedMonthKey(event.target.value)}>
+          {PLAN_MONTHS.map((monthKey) => (
+            <option key={monthKey} value={monthKey}>
+              {monthKey}
             </option>
           ))}
         </select>
@@ -68,61 +73,59 @@ export const PlansPage = (): JSX.Element => {
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ monthKey, metrics }) => (
-              <tr key={monthKey}>
-                <td>{monthKey}</td>
-                <PlanCell
-                  value={metrics.car_entries_plan}
-                  disabled={!canEdit}
-                  onSave={(nextValue) => {
-                    dataService.upsertPlanMetrics(selectedAdminId, monthKey, {
-                      ...toPlanPayload(metrics),
-                      car_entries_plan: parseNumberOrNull(nextValue)
-                    });
-                  }}
-                />
-                <PlanCell
-                  value={metrics.average_check_plan}
-                  disabled={!canEdit}
-                  onSave={(nextValue) => {
-                    dataService.upsertPlanMetrics(selectedAdminId, monthKey, {
-                      ...toPlanPayload(metrics),
-                      average_check_plan: parseNumberOrNull(nextValue)
-                    });
-                  }}
-                />
-                <PlanCell
-                  value={metrics.air_filter_ratio_plan}
-                  disabled={!canEdit}
-                  onSave={(nextValue) => {
-                    dataService.upsertPlanMetrics(selectedAdminId, monthKey, {
-                      ...toPlanPayload(metrics),
-                      air_filter_ratio_plan: parseNumberOrNull(nextValue)
-                    });
-                  }}
-                />
-                <PlanCell
-                  value={metrics.cabin_filter_ratio_plan}
-                  disabled={!canEdit}
-                  onSave={(nextValue) => {
-                    dataService.upsertPlanMetrics(selectedAdminId, monthKey, {
-                      ...toPlanPayload(metrics),
-                      cabin_filter_ratio_plan: parseNumberOrNull(nextValue)
-                    });
-                  }}
-                />
-                <PlanCell
-                  value={metrics.flush_usage_ratio_plan}
-                  disabled={!canEdit}
-                  onSave={(nextValue) => {
-                    dataService.upsertPlanMetrics(selectedAdminId, monthKey, {
-                      ...toPlanPayload(metrics),
-                      flush_usage_ratio_plan: parseNumberOrNull(nextValue)
-                    });
-                  }}
-                />
-              </tr>
-            ))}
+            <tr key={selectedMonthKey}>
+              <td>{selectedMonthKey}</td>
+              <PlanCell
+                value={metrics.car_entries_plan}
+                disabled={!canEdit}
+                onSave={(nextValue) => {
+                  dataService.upsertPlanMetrics(selectedAdminId, selectedMonthKey, {
+                    ...toPlanPayload(metrics),
+                    car_entries_plan: parseNumberOrNull(nextValue)
+                  });
+                }}
+              />
+              <PlanCell
+                value={metrics.average_check_plan}
+                disabled={!canEdit}
+                onSave={(nextValue) => {
+                  dataService.upsertPlanMetrics(selectedAdminId, selectedMonthKey, {
+                    ...toPlanPayload(metrics),
+                    average_check_plan: parseNumberOrNull(nextValue)
+                  });
+                }}
+              />
+              <PlanCell
+                value={metrics.air_filter_ratio_plan}
+                disabled={!canEdit}
+                onSave={(nextValue) => {
+                  dataService.upsertPlanMetrics(selectedAdminId, selectedMonthKey, {
+                    ...toPlanPayload(metrics),
+                    air_filter_ratio_plan: parseNumberOrNull(nextValue)
+                  });
+                }}
+              />
+              <PlanCell
+                value={metrics.cabin_filter_ratio_plan}
+                disabled={!canEdit}
+                onSave={(nextValue) => {
+                  dataService.upsertPlanMetrics(selectedAdminId, selectedMonthKey, {
+                    ...toPlanPayload(metrics),
+                    cabin_filter_ratio_plan: parseNumberOrNull(nextValue)
+                  });
+                }}
+              />
+              <PlanCell
+                value={metrics.flush_usage_ratio_plan}
+                disabled={!canEdit}
+                onSave={(nextValue) => {
+                  dataService.upsertPlanMetrics(selectedAdminId, selectedMonthKey, {
+                    ...toPlanPayload(metrics),
+                    flush_usage_ratio_plan: parseNumberOrNull(nextValue)
+                  });
+                }}
+              />
+            </tr>
           </tbody>
         </table>
       </div>
