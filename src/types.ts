@@ -49,6 +49,7 @@ export interface AppData {
 
 export interface PlanMetrics {
   month_key: string;
+  object_id: string;
   car_entries_plan: number | null;
   car_entries_fact: number | null;
   average_check_plan: number | null;

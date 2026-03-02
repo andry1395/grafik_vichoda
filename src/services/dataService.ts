@@ -250,12 +250,13 @@ const reorderEmployeesByAdmin = (adminId: string, orderedEmployeeIds: string[]):
 
 const getObjectsByAdmin = (adminId: string): WorkObject[] => getFromStorage().objects.filter((objectItem) => objectItem.admin_id === adminId);
 
-const plansStorageKey = (adminId: string, monthKey: string): string => `${adminId}__${monthKey}`;
+const plansStorageKey = (adminId: string, objectId: string, monthKey: string): string => `${adminId}__${objectId}__${monthKey}`;
 
-const getPlanMetrics = (adminId: string, monthKey: string): PlanMetrics => {
-  const fromStorage = getFromStorage().plans[plansStorageKey(adminId, monthKey)];
+const getPlanMetrics = (adminId: string, objectId: string, monthKey: string): PlanMetrics => {
+  const fromStorage = getFromStorage().plans[plansStorageKey(adminId, objectId, monthKey)];
   return {
     month_key: monthKey,
+    object_id: objectId,
     car_entries_plan: fromStorage?.car_entries_plan ?? null,
     car_entries_fact: fromStorage?.car_entries_fact ?? null,
     average_check_plan: fromStorage?.average_check_plan ?? null,
@@ -271,12 +272,13 @@ const getPlanMetrics = (adminId: string, monthKey: string): PlanMetrics => {
 
 const upsertPlanMetrics = (
   adminId: string,
+  objectId: string,
   monthKey: string,
-  payload: Omit<PlanMetrics, 'month_key'>
+  payload: Omit<PlanMetrics, 'month_key' | 'object_id'>
 ): PlanMetrics => {
   const data = getFromStorage();
-  const metrics: PlanMetrics = { month_key: monthKey, ...payload };
-  data.plans[plansStorageKey(adminId, monthKey)] = metrics;
+  const metrics: PlanMetrics = { month_key: monthKey, object_id: objectId, ...payload };
+  data.plans[plansStorageKey(adminId, objectId, monthKey)] = metrics;
   setToStorage(data);
   return metrics;
 };

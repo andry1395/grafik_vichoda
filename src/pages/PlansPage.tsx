@@ -61,16 +61,35 @@ export const PlansPage = (): JSX.Element => {
   const admins = dataService.getAdmins();
   const [selectedAdminId, setSelectedAdminId] = useState(admins[0]?.id ?? dataService.SUPER_ADMIN_ID);
   const [selectedMonthKey, setSelectedMonthKey] = useState(PLAN_MONTHS[0]);
+  const [selectedObjectId, setSelectedObjectId] = useState('');
   const sessionAdminId = getAdminSessionId();
+
+  const objects = dataService.getObjectsByAdmin(selectedAdminId).filter((item) => item.active);
+
+  useEffect(() => {
+    if (!objects.some((item) => item.id === selectedObjectId)) {
+      setSelectedObjectId(objects[0]?.id ?? '');
+    }
+  }, [objects, selectedObjectId]);
 
   const canEdit = sessionAdminId === selectedAdminId;
   const selectedAdminName = admins.find((admin) => admin.id === selectedAdminId)?.name ?? '—';
-  const metrics = dataService.getPlanMetrics(selectedAdminId, selectedMonthKey);
+
+  if (!selectedObjectId) {
+    return (
+      <section>
+        <h1>Планы</h1>
+        <p>Для выбранного администратора нет активных объектов. Добавьте объект, чтобы задавать планы.</p>
+      </section>
+    );
+  }
+
+  const metrics = dataService.getPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey);
 
   return (
     <section>
       <h1>Планы</h1>
-      <p>Помесячный план/факт с отклонением в процентах и количественном (или суммовом) выражении.</p>
+      <p>Помесячный план/факт с отклонением по каждому объекту.</p>
 
       <div className="toolbar-row">
         <label htmlFor="plan-admin-select">Администратор:</label>
@@ -78,6 +97,15 @@ export const PlansPage = (): JSX.Element => {
           {admins.map((admin) => (
             <option key={admin.id} value={admin.id}>
               {admin.name}
+            </option>
+          ))}
+        </select>
+
+        <label htmlFor="plan-object-select">Объект:</label>
+        <select id="plan-object-select" value={selectedObjectId} onChange={(event) => setSelectedObjectId(event.target.value)}>
+          {objects.map((objectItem) => (
+            <option key={objectItem.id} value={objectItem.id}>
+              {objectItem.name_ru}
             </option>
           ))}
         </select>
@@ -122,7 +150,7 @@ export const PlansPage = (): JSX.Element => {
                     value={planValue}
                     disabled={!canEdit}
                     onSave={(nextValue) => {
-                      dataService.upsertPlanMetrics(selectedAdminId, selectedMonthKey, {
+                      dataService.upsertPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey, {
                         ...toPayload(metrics),
                         [planKey]: parseNumberOrNull(nextValue)
                       });
@@ -132,7 +160,7 @@ export const PlansPage = (): JSX.Element => {
                     value={factValue}
                     disabled={!canEdit}
                     onSave={(nextValue) => {
-                      dataService.upsertPlanMetrics(selectedAdminId, selectedMonthKey, {
+                      dataService.upsertPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey, {
                         ...toPayload(metrics),
                         [factKey]: parseNumberOrNull(nextValue)
                       });
