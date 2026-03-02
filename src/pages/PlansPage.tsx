@@ -4,7 +4,6 @@ import { getAdminSessionId } from '../utils/adminAuth';
 
 const PLAN_MONTHS = Array.from({ length: 12 }, (_, index) => `2026-${String(index + 1).padStart(2, '0')}`);
 
-
 const getDefaultMonthKey = (): string => {
   const now = new Date();
   const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -15,14 +14,15 @@ type MetricRow = {
   key: 'car_entries' | 'average_check' | 'air_filter_ratio' | 'cabin_filter_ratio' | 'flush_usage_ratio';
   label: string;
   unit: string;
+  isRatioFromCarEntries?: boolean;
 };
 
 const METRIC_ROWS: MetricRow[] = [
   { key: 'car_entries', label: 'Машинозаезды', unit: 'шт' },
   { key: 'average_check', label: 'Средний чек', unit: '₽' },
-  { key: 'air_filter_ratio', label: 'Воздушные фильтры', unit: '%' },
-  { key: 'cabin_filter_ratio', label: 'Салонные фильтры', unit: '%' },
-  { key: 'flush_usage_ratio', label: 'Промывка', unit: '%' }
+  { key: 'air_filter_ratio', label: 'Воздушные фильтры (%)', unit: '%', isRatioFromCarEntries: true },
+  { key: 'cabin_filter_ratio', label: 'Салонные фильтры (%)', unit: '%', isRatioFromCarEntries: true },
+  { key: 'flush_usage_ratio', label: 'Промывка (%)', unit: '%', isRatioFromCarEntries: true }
 ];
 
 const toPayload = (metrics: ReturnType<typeof dataService.getPlanMetrics>) => ({
@@ -50,6 +50,39 @@ const formatNumber = (value: number): string =>
     minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
     maximumFractionDigits: 2
   }).format(value);
+
+const calculateCountFromRatio = (base: number | null, ratio: number | null): number | null => {
+  if (base === null || ratio === null) return null;
+  return (base * ratio) / 100;
+};
+
+const calculateRatioFromCount = (base: number | null, count: number | null): number | null => {
+  if (base === null || base === 0 || count === null) return null;
+  return (count / base) * 100;
+};
+
+const formatRatioCellValue = (ratio: number | null, base: number | null): string => {
+  if (ratio === null && base === null) return '';
+  const count = calculateCountFromRatio(base, ratio);
+  const ratioText = ratio === null ? '' : formatNumber(ratio);
+  const countText = count === null ? '' : formatNumber(count);
+  if (!ratioText && !countText) return '';
+  return `${ratioText} / ${countText}`;
+};
+
+const parseRatioInputToPercent = (value: string, base: number | null): number | null => {
+  const normalized = value.trim();
+  if (!normalized) return null;
+
+  if (!normalized.includes('/')) return parseNumberOrNull(normalized);
+
+  const [leftRaw, rightRaw] = normalized.split('/').map((item) => item.trim());
+  const percentPart = parseNumberOrNull(leftRaw);
+  if (percentPart !== null) return percentPart;
+
+  const quantityPart = parseNumberOrNull(rightRaw);
+  return calculateRatioFromCount(base, quantityPart);
+};
 
 const formatDeviation = (plan: number | null, fact: number | null, unit: string): string => {
   if (plan === null || fact === null) return '—';
@@ -96,7 +129,7 @@ export const PlansPage = (): JSX.Element => {
   return (
     <section>
       <h1>Планы</h1>
-      <p>Помесячный план/факт с отклонением по каждому объекту.</p>
+      <p>Для фильтров и промывки можно вводить «% / количество» или «/ количество» — система пересчитает процент от машинозаездов.</p>
 
       <div className="toolbar-row">
         <label htmlFor="plan-admin-select">Администратор:</label>
@@ -153,26 +186,55 @@ export const PlansPage = (): JSX.Element => {
               return (
                 <tr key={row.key}>
                   <td>{row.label}</td>
-                  <PlanCell
-                    value={planValue}
-                    disabled={!canEdit}
-                    onSave={(nextValue) => {
-                      dataService.upsertPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey, {
-                        ...toPayload(metrics),
-                        [planKey]: parseNumberOrNull(nextValue)
-                      });
-                    }}
-                  />
-                  <PlanCell
-                    value={factValue}
-                    disabled={!canEdit}
-                    onSave={(nextValue) => {
-                      dataService.upsertPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey, {
-                        ...toPayload(metrics),
-                        [factKey]: parseNumberOrNull(nextValue)
-                      });
-                    }}
-                  />
+                  {row.isRatioFromCarEntries ? (
+                    <>
+                      <RatioCell
+                        value={formatRatioCellValue(planValue, metrics.car_entries_plan)}
+                        base={metrics.car_entries_plan}
+                        disabled={!canEdit}
+                        onSave={(nextValue) => {
+                          dataService.upsertPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey, {
+                            ...toPayload(metrics),
+                            [planKey]: parseRatioInputToPercent(nextValue, metrics.car_entries_plan)
+                          });
+                        }}
+                      />
+                      <RatioCell
+                        value={formatRatioCellValue(factValue, metrics.car_entries_fact)}
+                        base={metrics.car_entries_fact}
+                        disabled={!canEdit}
+                        onSave={(nextValue) => {
+                          dataService.upsertPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey, {
+                            ...toPayload(metrics),
+                            [factKey]: parseRatioInputToPercent(nextValue, metrics.car_entries_fact)
+                          });
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <PlanCell
+                        value={planValue === null ? '' : String(planValue)}
+                        disabled={!canEdit}
+                        onSave={(nextValue) => {
+                          dataService.upsertPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey, {
+                            ...toPayload(metrics),
+                            [planKey]: parseNumberOrNull(nextValue)
+                          });
+                        }}
+                      />
+                      <PlanCell
+                        value={factValue === null ? '' : String(factValue)}
+                        disabled={!canEdit}
+                        onSave={(nextValue) => {
+                          dataService.upsertPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey, {
+                            ...toPayload(metrics),
+                            [factKey]: parseNumberOrNull(nextValue)
+                          });
+                        }}
+                      />
+                    </>
+                  )}
                   <td>{formatDeviation(planValue, factValue, row.unit)}</td>
                 </tr>
               );
@@ -184,19 +246,11 @@ export const PlansPage = (): JSX.Element => {
   );
 };
 
-const PlanCell = ({
-  value,
-  disabled,
-  onSave
-}: {
-  value: number | null;
-  disabled: boolean;
-  onSave: (value: string) => void;
-}): JSX.Element => {
-  const [draft, setDraft] = useState(value === null ? '' : String(value));
+const PlanCell = ({ value, disabled, onSave }: { value: string; disabled: boolean; onSave: (value: string) => void }): JSX.Element => {
+  const [draft, setDraft] = useState(value);
 
   useEffect(() => {
-    setDraft(value === null ? '' : String(value));
+    setDraft(value);
   }, [value]);
 
   return (
@@ -207,6 +261,39 @@ const PlanCell = ({
         inputMode="decimal"
         value={draft}
         disabled={disabled}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => onSave(draft)}
+      />
+    </td>
+  );
+};
+
+const RatioCell = ({
+  value,
+  base,
+  disabled,
+  onSave
+}: {
+  value: string;
+  base: number | null;
+  disabled: boolean;
+  onSave: (value: string) => void;
+}): JSX.Element => {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  return (
+    <td>
+      <input
+        className="plan-input"
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        disabled={disabled}
+        placeholder={base === null ? 'Сначала заполните машинозаезды' : '% / кол-во'}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={() => onSave(draft)}
       />
