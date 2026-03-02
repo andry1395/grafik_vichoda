@@ -11,7 +11,7 @@ const getDefaultMonthKey = (): string => {
 };
 
 type MetricRow = {
-  key: 'car_entries' | 'average_check' | 'air_filter_ratio' | 'cabin_filter_ratio' | 'flush_usage_ratio' | 'akpp_ratio' | 'partial_replacement_ratio' | 'technical_fluids_ratio' | 'additional_services_ratio';
+  key: 'car_entries' | 'average_check' | 'air_filter_ratio' | 'cabin_filter_ratio' | 'flush_usage_ratio' | 'akpp_ratio' | 'partial_replacement_ratio' | 'technical_fluids_ratio' | 'additional_services_amount';
   label: string;
   unit: string;
   isRatioFromCarEntries?: boolean;
@@ -26,7 +26,7 @@ const METRIC_ROWS: MetricRow[] = [
   { key: 'akpp_ratio', label: 'АКПП', unit: '%', isRatioFromCarEntries: true },
   { key: 'partial_replacement_ratio', label: 'Частичные замены', unit: '%', isRatioFromCarEntries: true },
   { key: 'technical_fluids_ratio', label: 'Т/Ж', unit: '%', isRatioFromCarEntries: true },
-  { key: 'additional_services_ratio', label: 'Доп. услуги', unit: '%', isRatioFromCarEntries: true }
+  { key: 'additional_services_amount', label: 'Доп. услуги', unit: '₽' }
 ];
 
 const toPayload = (metrics: ReturnType<typeof dataService.getPlanMetrics>) => ({
@@ -46,8 +46,8 @@ const toPayload = (metrics: ReturnType<typeof dataService.getPlanMetrics>) => ({
   partial_replacement_ratio_fact: metrics.partial_replacement_ratio_fact,
   technical_fluids_ratio_plan: metrics.technical_fluids_ratio_plan,
   technical_fluids_ratio_fact: metrics.technical_fluids_ratio_fact,
-  additional_services_ratio_plan: metrics.additional_services_ratio_plan,
-  additional_services_ratio_fact: metrics.additional_services_ratio_fact
+  additional_services_amount_plan: metrics.additional_services_amount_plan,
+  additional_services_amount_fact: metrics.additional_services_amount_fact
 });
 
 const parseNumberOrNull = (value: string): number | null => {

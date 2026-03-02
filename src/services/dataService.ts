@@ -273,8 +273,8 @@ const getPlanMetrics = (adminId: string, objectId: string, monthKey: string): Pl
     partial_replacement_ratio_fact: fromStorage?.partial_replacement_ratio_fact ?? null,
     technical_fluids_ratio_plan: fromStorage?.technical_fluids_ratio_plan ?? null,
     technical_fluids_ratio_fact: fromStorage?.technical_fluids_ratio_fact ?? null,
-    additional_services_ratio_plan: fromStorage?.additional_services_ratio_plan ?? null,
-    additional_services_ratio_fact: fromStorage?.additional_services_ratio_fact ?? null
+    additional_services_amount_plan: fromStorage?.additional_services_amount_plan ?? fromStorage?.additional_services_ratio_plan ?? null,
+    additional_services_amount_fact: fromStorage?.additional_services_amount_fact ?? fromStorage?.additional_services_ratio_fact ?? null
   };
 };
 

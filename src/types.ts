@@ -66,8 +66,8 @@ export interface PlanMetrics {
   partial_replacement_ratio_fact: number | null;
   technical_fluids_ratio_plan: number | null;
   technical_fluids_ratio_fact: number | null;
-  additional_services_ratio_plan: number | null;
-  additional_services_ratio_fact: number | null;
+  additional_services_amount_plan: number | null;
+  additional_services_amount_fact: number | null;
 }
 
 export interface VacationRequest {
