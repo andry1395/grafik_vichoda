@@ -174,9 +174,9 @@ export const PlansPage = (): JSX.Element => {
             </tr>
             <tr>
               <th>%</th>
-              <th>Кол-во (шт)</th>
+              <th>Количество / сумма</th>
               <th>%</th>
-              <th>Кол-во (шт)</th>
+              <th>Количество / сумма</th>
             </tr>
           </thead>
           <tbody>
@@ -187,6 +187,7 @@ export const PlansPage = (): JSX.Element => {
               const factValue = metrics[factKey];
               const planCount = row.isRatioFromCarEntries ? calculateCountFromRatio(metrics.car_entries_plan, planValue) : planValue;
               const factCount = row.isRatioFromCarEntries ? calculateCountFromRatio(metrics.car_entries_fact, factValue) : factValue;
+              const valueUnitLabel = row.isRatioFromCarEntries ? 'шт' : row.unit;
 
               return (
                 <tr key={row.key}>
@@ -205,9 +206,9 @@ export const PlansPage = (): JSX.Element => {
                     }}
                   />
                   <PlanCell
-                    value={planCount === null ? '' : `${formatNumber(planCount)} шт`}
+                    value={planCount === null ? '' : `${formatNumber(planCount)} ${valueUnitLabel}`}
                     disabled={!canEdit}
-                    placeholder="шт"
+                    placeholder={valueUnitLabel}
                     onSave={(nextValue) => {
                       dataService.upsertPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey, {
                         ...toPayload(metrics),
@@ -231,9 +232,9 @@ export const PlansPage = (): JSX.Element => {
                     }}
                   />
                   <PlanCell
-                    value={factCount === null ? '' : `${formatNumber(factCount)} шт`}
+                    value={factCount === null ? '' : `${formatNumber(factCount)} ${valueUnitLabel}`}
                     disabled={!canEdit}
-                    placeholder="шт"
+                    placeholder={valueUnitLabel}
                     onSave={(nextValue) => {
                       dataService.upsertPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey, {
                         ...toPayload(metrics),
