@@ -50,10 +50,15 @@ export interface AppData {
 export interface PlanMetrics {
   month_key: string;
   car_entries_plan: number | null;
+  car_entries_fact: number | null;
   average_check_plan: number | null;
+  average_check_fact: number | null;
   air_filter_ratio_plan: number | null;
+  air_filter_ratio_fact: number | null;
   cabin_filter_ratio_plan: number | null;
+  cabin_filter_ratio_fact: number | null;
   flush_usage_ratio_plan: number | null;
+  flush_usage_ratio_fact: number | null;
 }
 
 export interface VacationRequest {

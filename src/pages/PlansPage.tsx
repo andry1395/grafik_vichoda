@@ -4,13 +4,58 @@ import { getAdminSessionId } from '../utils/adminAuth';
 
 const PLAN_MONTHS = Array.from({ length: 12 }, (_, index) => `2026-${String(index + 1).padStart(2, '0')}`);
 
-const toPlanPayload = (metrics: ReturnType<typeof dataService.getPlanMetrics>) => ({
+type MetricRow = {
+  key: 'car_entries' | 'average_check' | 'air_filter_ratio' | 'cabin_filter_ratio' | 'flush_usage_ratio';
+  label: string;
+  unit: string;
+};
+
+const METRIC_ROWS: MetricRow[] = [
+  { key: 'car_entries', label: 'Машинозаезды', unit: 'шт' },
+  { key: 'average_check', label: 'Средний чек', unit: '₽' },
+  { key: 'air_filter_ratio', label: 'Воздушные фильтры', unit: '%' },
+  { key: 'cabin_filter_ratio', label: 'Салонные фильтры', unit: '%' },
+  { key: 'flush_usage_ratio', label: 'Промывка', unit: '%' }
+];
+
+const toPayload = (metrics: ReturnType<typeof dataService.getPlanMetrics>) => ({
   car_entries_plan: metrics.car_entries_plan,
+  car_entries_fact: metrics.car_entries_fact,
   average_check_plan: metrics.average_check_plan,
+  average_check_fact: metrics.average_check_fact,
   air_filter_ratio_plan: metrics.air_filter_ratio_plan,
+  air_filter_ratio_fact: metrics.air_filter_ratio_fact,
   cabin_filter_ratio_plan: metrics.cabin_filter_ratio_plan,
-  flush_usage_ratio_plan: metrics.flush_usage_ratio_plan
+  cabin_filter_ratio_fact: metrics.cabin_filter_ratio_fact,
+  flush_usage_ratio_plan: metrics.flush_usage_ratio_plan,
+  flush_usage_ratio_fact: metrics.flush_usage_ratio_fact
 });
+
+const parseNumberOrNull = (value: string): number | null => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed.replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const formatNumber = (value: number): string =>
+  new Intl.NumberFormat('ru-RU', {
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+    maximumFractionDigits: 2
+  }).format(value);
+
+const formatDeviation = (plan: number | null, fact: number | null, unit: string): string => {
+  if (plan === null || fact === null) return '—';
+  const delta = fact - plan;
+  const deltaSign = delta > 0 ? '+' : '';
+  const absPart = `${deltaSign}${formatNumber(delta)} ${unit}`;
+
+  if (plan === 0) return `${absPart}; %: —`;
+
+  const pct = (delta / plan) * 100;
+  const pctSign = pct > 0 ? '+' : '';
+  return `${absPart}; ${pctSign}${formatNumber(pct)}%`;
+};
 
 export const PlansPage = (): JSX.Element => {
   const admins = dataService.getAdmins();
@@ -22,17 +67,10 @@ export const PlansPage = (): JSX.Element => {
   const selectedAdminName = admins.find((admin) => admin.id === selectedAdminId)?.name ?? '—';
   const metrics = dataService.getPlanMetrics(selectedAdminId, selectedMonthKey);
 
-  const parseNumberOrNull = (value: string): number | null => {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    const parsed = Number(trimmed.replace(',', '.'));
-    return Number.isFinite(parsed) ? parsed : null;
-  };
-
   return (
     <section>
       <h1>Планы</h1>
-      <p>Плановые показатели по машинозаездам, среднему чеку и доп. услугам. Отображение помесячное.</p>
+      <p>Помесячный план/факт с отклонением в процентах и количественном (или суммовом) выражении.</p>
 
       <div className="toolbar-row">
         <label htmlFor="plan-admin-select">Администратор:</label>
@@ -64,68 +102,46 @@ export const PlansPage = (): JSX.Element => {
         <table className="simple-table">
           <thead>
             <tr>
-              <th>Месяц</th>
-              <th>Машинозаезды (план)</th>
-              <th>Средний чек (план)</th>
-              <th>Воздушные фильтры, %</th>
-              <th>Салонные фильтры, %</th>
-              <th>Промывка, %</th>
+              <th>Наименование показателя</th>
+              <th>Планируемые показатели</th>
+              <th>Фактические</th>
+              <th>Отклонение</th>
             </tr>
           </thead>
           <tbody>
-            <tr key={selectedMonthKey}>
-              <td>{selectedMonthKey}</td>
-              <PlanCell
-                value={metrics.car_entries_plan}
-                disabled={!canEdit}
-                onSave={(nextValue) => {
-                  dataService.upsertPlanMetrics(selectedAdminId, selectedMonthKey, {
-                    ...toPlanPayload(metrics),
-                    car_entries_plan: parseNumberOrNull(nextValue)
-                  });
-                }}
-              />
-              <PlanCell
-                value={metrics.average_check_plan}
-                disabled={!canEdit}
-                onSave={(nextValue) => {
-                  dataService.upsertPlanMetrics(selectedAdminId, selectedMonthKey, {
-                    ...toPlanPayload(metrics),
-                    average_check_plan: parseNumberOrNull(nextValue)
-                  });
-                }}
-              />
-              <PlanCell
-                value={metrics.air_filter_ratio_plan}
-                disabled={!canEdit}
-                onSave={(nextValue) => {
-                  dataService.upsertPlanMetrics(selectedAdminId, selectedMonthKey, {
-                    ...toPlanPayload(metrics),
-                    air_filter_ratio_plan: parseNumberOrNull(nextValue)
-                  });
-                }}
-              />
-              <PlanCell
-                value={metrics.cabin_filter_ratio_plan}
-                disabled={!canEdit}
-                onSave={(nextValue) => {
-                  dataService.upsertPlanMetrics(selectedAdminId, selectedMonthKey, {
-                    ...toPlanPayload(metrics),
-                    cabin_filter_ratio_plan: parseNumberOrNull(nextValue)
-                  });
-                }}
-              />
-              <PlanCell
-                value={metrics.flush_usage_ratio_plan}
-                disabled={!canEdit}
-                onSave={(nextValue) => {
-                  dataService.upsertPlanMetrics(selectedAdminId, selectedMonthKey, {
-                    ...toPlanPayload(metrics),
-                    flush_usage_ratio_plan: parseNumberOrNull(nextValue)
-                  });
-                }}
-              />
-            </tr>
+            {METRIC_ROWS.map((row) => {
+              const planKey = `${row.key}_plan` as const;
+              const factKey = `${row.key}_fact` as const;
+              const planValue = metrics[planKey];
+              const factValue = metrics[factKey];
+
+              return (
+                <tr key={row.key}>
+                  <td>{row.label}</td>
+                  <PlanCell
+                    value={planValue}
+                    disabled={!canEdit}
+                    onSave={(nextValue) => {
+                      dataService.upsertPlanMetrics(selectedAdminId, selectedMonthKey, {
+                        ...toPayload(metrics),
+                        [planKey]: parseNumberOrNull(nextValue)
+                      });
+                    }}
+                  />
+                  <PlanCell
+                    value={factValue}
+                    disabled={!canEdit}
+                    onSave={(nextValue) => {
+                      dataService.upsertPlanMetrics(selectedAdminId, selectedMonthKey, {
+                        ...toPayload(metrics),
+                        [factKey]: parseNumberOrNull(nextValue)
+                      });
+                    }}
+                  />
+                  <td>{formatDeviation(planValue, factValue, row.unit)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -254,16 +254,19 @@ const plansStorageKey = (adminId: string, monthKey: string): string => `${adminI
 
 const getPlanMetrics = (adminId: string, monthKey: string): PlanMetrics => {
   const fromStorage = getFromStorage().plans[plansStorageKey(adminId, monthKey)];
-  return (
-    fromStorage ?? {
-      month_key: monthKey,
-      car_entries_plan: null,
-      average_check_plan: null,
-      air_filter_ratio_plan: null,
-      cabin_filter_ratio_plan: null,
-      flush_usage_ratio_plan: null
-    }
-  );
+  return {
+    month_key: monthKey,
+    car_entries_plan: fromStorage?.car_entries_plan ?? null,
+    car_entries_fact: fromStorage?.car_entries_fact ?? null,
+    average_check_plan: fromStorage?.average_check_plan ?? null,
+    average_check_fact: fromStorage?.average_check_fact ?? null,
+    air_filter_ratio_plan: fromStorage?.air_filter_ratio_plan ?? null,
+    air_filter_ratio_fact: fromStorage?.air_filter_ratio_fact ?? null,
+    cabin_filter_ratio_plan: fromStorage?.cabin_filter_ratio_plan ?? null,
+    cabin_filter_ratio_fact: fromStorage?.cabin_filter_ratio_fact ?? null,
+    flush_usage_ratio_plan: fromStorage?.flush_usage_ratio_plan ?? null,
+    flush_usage_ratio_fact: fromStorage?.flush_usage_ratio_fact ?? null
+  };
 };
 
 const upsertPlanMetrics = (
