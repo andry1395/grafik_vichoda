@@ -52,9 +52,9 @@ const parseNumericToken = (value: string): number | null => {
 
 const formatNumber = (value: number): string =>
   new Intl.NumberFormat('ru-RU', {
-    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
-    maximumFractionDigits: 2
-  }).format(value);
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(Math.round(value));
 
 const calculateCountFromRatio = (base: number | null, ratio: number | null): number | null => {
   if (base === null || ratio === null) return null;
