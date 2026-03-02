@@ -511,3 +511,9 @@ button:active {
   width: 100%;
   min-width: 120px;
 }
+
+.plans-table .plans-group-header {
+  background: #e8f0ff;
+  text-align: center;
+  font-weight: 700;
+}
