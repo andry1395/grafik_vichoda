@@ -11,7 +11,7 @@ const getDefaultMonthKey = (): string => {
 };
 
 type MetricRow = {
-  key: 'car_entries' | 'average_check' | 'air_filter_ratio' | 'cabin_filter_ratio' | 'flush_usage_ratio';
+  key: 'car_entries' | 'average_check' | 'air_filter_ratio' | 'cabin_filter_ratio' | 'flush_usage_ratio' | 'akpp_ratio' | 'partial_replacement_ratio' | 'technical_fluids_ratio' | 'additional_services_ratio';
   label: string;
   unit: string;
   isRatioFromCarEntries?: boolean;
@@ -22,7 +22,11 @@ const METRIC_ROWS: MetricRow[] = [
   { key: 'average_check', label: 'Средний чек', unit: '₽' },
   { key: 'air_filter_ratio', label: 'Воздушные фильтры', unit: '%', isRatioFromCarEntries: true },
   { key: 'cabin_filter_ratio', label: 'Салонные фильтры', unit: '%', isRatioFromCarEntries: true },
-  { key: 'flush_usage_ratio', label: 'Промывка', unit: '%', isRatioFromCarEntries: true }
+  { key: 'flush_usage_ratio', label: 'Промывка', unit: '%', isRatioFromCarEntries: true },
+  { key: 'akpp_ratio', label: 'АКПП', unit: '%', isRatioFromCarEntries: true },
+  { key: 'partial_replacement_ratio', label: 'Частичные замены', unit: '%', isRatioFromCarEntries: true },
+  { key: 'technical_fluids_ratio', label: 'Т/Ж', unit: '%', isRatioFromCarEntries: true },
+  { key: 'additional_services_ratio', label: 'Доп. услуги', unit: '%', isRatioFromCarEntries: true }
 ];
 
 const toPayload = (metrics: ReturnType<typeof dataService.getPlanMetrics>) => ({
@@ -35,7 +39,15 @@ const toPayload = (metrics: ReturnType<typeof dataService.getPlanMetrics>) => ({
   cabin_filter_ratio_plan: metrics.cabin_filter_ratio_plan,
   cabin_filter_ratio_fact: metrics.cabin_filter_ratio_fact,
   flush_usage_ratio_plan: metrics.flush_usage_ratio_plan,
-  flush_usage_ratio_fact: metrics.flush_usage_ratio_fact
+  flush_usage_ratio_fact: metrics.flush_usage_ratio_fact,
+  akpp_ratio_plan: metrics.akpp_ratio_plan,
+  akpp_ratio_fact: metrics.akpp_ratio_fact,
+  partial_replacement_ratio_plan: metrics.partial_replacement_ratio_plan,
+  partial_replacement_ratio_fact: metrics.partial_replacement_ratio_fact,
+  technical_fluids_ratio_plan: metrics.technical_fluids_ratio_plan,
+  technical_fluids_ratio_fact: metrics.technical_fluids_ratio_fact,
+  additional_services_ratio_plan: metrics.additional_services_ratio_plan,
+  additional_services_ratio_fact: metrics.additional_services_ratio_fact
 });
 
 const parseNumberOrNull = (value: string): number | null => {

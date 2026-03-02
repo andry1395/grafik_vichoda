@@ -266,7 +266,15 @@ const getPlanMetrics = (adminId: string, objectId: string, monthKey: string): Pl
     cabin_filter_ratio_plan: fromStorage?.cabin_filter_ratio_plan ?? null,
     cabin_filter_ratio_fact: fromStorage?.cabin_filter_ratio_fact ?? null,
     flush_usage_ratio_plan: fromStorage?.flush_usage_ratio_plan ?? null,
-    flush_usage_ratio_fact: fromStorage?.flush_usage_ratio_fact ?? null
+    flush_usage_ratio_fact: fromStorage?.flush_usage_ratio_fact ?? null,
+    akpp_ratio_plan: fromStorage?.akpp_ratio_plan ?? null,
+    akpp_ratio_fact: fromStorage?.akpp_ratio_fact ?? null,
+    partial_replacement_ratio_plan: fromStorage?.partial_replacement_ratio_plan ?? null,
+    partial_replacement_ratio_fact: fromStorage?.partial_replacement_ratio_fact ?? null,
+    technical_fluids_ratio_plan: fromStorage?.technical_fluids_ratio_plan ?? null,
+    technical_fluids_ratio_fact: fromStorage?.technical_fluids_ratio_fact ?? null,
+    additional_services_ratio_plan: fromStorage?.additional_services_ratio_plan ?? null,
+    additional_services_ratio_fact: fromStorage?.additional_services_ratio_fact ?? null
   };
 };
 
