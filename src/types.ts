@@ -44,7 +44,17 @@ export interface AppData {
   objects: WorkObject[];
   months: Record<string, MonthData>;
   plans: Record<string, PlanMetrics>;
+  plan_ratio_defaults: Record<string, PlanRatioDefaults>;
   vacation_requests: VacationRequest[];
+}
+
+export interface PlanRatioDefaults {
+  air_filter_ratio: number | null;
+  cabin_filter_ratio: number | null;
+  flush_usage_ratio: number | null;
+  akpp_ratio: number | null;
+  partial_replacement_ratio: number | null;
+  technical_fluids_ratio: number | null;
 }
 
 export interface PlanMetrics {

@@ -17,6 +17,16 @@ type MetricRow = {
   isRatioFromCarEntries?: boolean;
 };
 
+
+const DEFAULT_RATIO_FIELDS: Array<{ key: keyof ReturnType<typeof dataService.getPlanRatioDefaults>; label: string }> = [
+  { key: 'air_filter_ratio', label: 'Воздушные фильтры, %' },
+  { key: 'cabin_filter_ratio', label: 'Салонные фильтры, %' },
+  { key: 'flush_usage_ratio', label: 'Промывка, %' },
+  { key: 'akpp_ratio', label: 'АКПП, %' },
+  { key: 'partial_replacement_ratio', label: 'Частичные замены, %' },
+  { key: 'technical_fluids_ratio', label: 'Т/Ж, %' }
+];
+
 const METRIC_ROWS: MetricRow[] = [
   { key: 'car_entries', label: 'Машинозаезды', unit: 'шт' },
   { key: 'average_check', label: 'Средний чек', unit: '₽' },
@@ -95,6 +105,11 @@ export const PlansPage = (): JSX.Element => {
 
   const canEdit = sessionAdminId === selectedAdminId;
   const selectedAdminName = admins.find((admin) => admin.id === selectedAdminId)?.name ?? '—';
+  const [defaultsDraft, setDefaultsDraft] = useState(() => dataService.getPlanRatioDefaults(selectedAdminId));
+
+  useEffect(() => {
+    setDefaultsDraft(dataService.getPlanRatioDefaults(selectedAdminId));
+  }, [selectedAdminId]);
 
   if (!selectedObjectId) {
     return (
@@ -139,6 +154,32 @@ export const PlansPage = (): JSX.Element => {
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="summary-card">
+        <h3>Дефолтная процентовка услуг (для всех объектов администратора)</h3>
+        <div className="toolbar-row">
+          {DEFAULT_RATIO_FIELDS.map((field) => (
+            <label key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span>{field.label}</span>
+              <input
+                className="plan-input"
+                type="text"
+                inputMode="decimal"
+                value={defaultsDraft[field.key] === null ? '' : String(defaultsDraft[field.key])}
+                disabled={!canEdit}
+                placeholder="%"
+                onChange={(event) => {
+                  const nextValue = parseNumberOrNull(event.target.value);
+                  setDefaultsDraft((prev) => ({ ...prev, [field.key]: nextValue }));
+                }}
+                onBlur={() => {
+                  dataService.upsertPlanRatioDefaults(selectedAdminId, defaultsDraft);
+                }}
+              />
+            </label>
+          ))}
+        </div>
       </div>
 
       {!canEdit && <div className="notice">Просмотр для администратора «{selectedAdminName}». Редактирование только после входа.</div>}

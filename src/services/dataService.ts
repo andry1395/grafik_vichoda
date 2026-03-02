@@ -1,4 +1,4 @@
-import type { AdminUser, AppData, Employee, EmployeeRole, MonthData, PlanMetrics, ScheduleEntry, SpecialValue, VacationRequest, WorkObject } from '../types';
+import type { AdminUser, AppData, Employee, EmployeeRole, MonthData, PlanMetrics, PlanRatioDefaults, ScheduleEntry, SpecialValue, VacationRequest, WorkObject } from '../types';
 import { firebaseConfig, isFirebaseConfigured } from './firebase';
 import { pullAppDataFromFirestore, pushAppDataToFirestore } from './firestoreRest';
 
@@ -36,6 +36,7 @@ const defaultData: AppData = {
   ],
   months: {},
   plans: {},
+  plan_ratio_defaults: {},
   vacation_requests: []
 };
 
@@ -60,6 +61,7 @@ const ensureDataShape = (input: unknown): AppData => {
       : [],
     months: maybe.months && typeof maybe.months === 'object' ? maybe.months : {},
     plans: maybe.plans && typeof maybe.plans === 'object' ? maybe.plans : {},
+    plan_ratio_defaults: maybe.plan_ratio_defaults && typeof maybe.plan_ratio_defaults === 'object' ? maybe.plan_ratio_defaults : {},
     vacation_requests: Array.isArray(maybe.vacation_requests)
       ? maybe.vacation_requests.map((request) => ({ ...request, admin_id: request.admin_id ?? SUPER_ADMIN_ID }))
       : []
@@ -215,6 +217,7 @@ const removeAdmin = (adminId: string): void => {
   for (const key of Object.keys(data.plans)) {
     if (key.startsWith(`${adminId}__`)) delete data.plans[key];
   }
+  delete data.plan_ratio_defaults[adminId];
   setToStorage(data);
 };
 
@@ -252,8 +255,28 @@ const getObjectsByAdmin = (adminId: string): WorkObject[] => getFromStorage().ob
 
 const plansStorageKey = (adminId: string, objectId: string, monthKey: string): string => `${adminId}__${objectId}__${monthKey}`;
 
+const getPlanRatioDefaults = (adminId: string): PlanRatioDefaults => {
+  const defaults = getFromStorage().plan_ratio_defaults[adminId];
+  return {
+    air_filter_ratio: defaults?.air_filter_ratio ?? null,
+    cabin_filter_ratio: defaults?.cabin_filter_ratio ?? null,
+    flush_usage_ratio: defaults?.flush_usage_ratio ?? null,
+    akpp_ratio: defaults?.akpp_ratio ?? null,
+    partial_replacement_ratio: defaults?.partial_replacement_ratio ?? null,
+    technical_fluids_ratio: defaults?.technical_fluids_ratio ?? null
+  };
+};
+
+const upsertPlanRatioDefaults = (adminId: string, payload: PlanRatioDefaults): PlanRatioDefaults => {
+  const data = getFromStorage();
+  data.plan_ratio_defaults[adminId] = { ...payload };
+  setToStorage(data);
+  return data.plan_ratio_defaults[adminId];
+};
+
 const getPlanMetrics = (adminId: string, objectId: string, monthKey: string): PlanMetrics => {
   const fromStorage = getFromStorage().plans[plansStorageKey(adminId, objectId, monthKey)];
+  const defaults = getPlanRatioDefaults(adminId);
   const legacy = fromStorage as (PlanMetrics & { additional_services_ratio_plan?: number | null; additional_services_ratio_fact?: number | null }) | undefined;
   return {
     month_key: monthKey,
@@ -262,18 +285,18 @@ const getPlanMetrics = (adminId: string, objectId: string, monthKey: string): Pl
     car_entries_fact: fromStorage?.car_entries_fact ?? null,
     average_check_plan: fromStorage?.average_check_plan ?? null,
     average_check_fact: fromStorage?.average_check_fact ?? null,
-    air_filter_ratio_plan: fromStorage?.air_filter_ratio_plan ?? null,
-    air_filter_ratio_fact: fromStorage?.air_filter_ratio_fact ?? null,
-    cabin_filter_ratio_plan: fromStorage?.cabin_filter_ratio_plan ?? null,
-    cabin_filter_ratio_fact: fromStorage?.cabin_filter_ratio_fact ?? null,
-    flush_usage_ratio_plan: fromStorage?.flush_usage_ratio_plan ?? null,
-    flush_usage_ratio_fact: fromStorage?.flush_usage_ratio_fact ?? null,
-    akpp_ratio_plan: fromStorage?.akpp_ratio_plan ?? null,
-    akpp_ratio_fact: fromStorage?.akpp_ratio_fact ?? null,
-    partial_replacement_ratio_plan: fromStorage?.partial_replacement_ratio_plan ?? null,
-    partial_replacement_ratio_fact: fromStorage?.partial_replacement_ratio_fact ?? null,
-    technical_fluids_ratio_plan: fromStorage?.technical_fluids_ratio_plan ?? null,
-    technical_fluids_ratio_fact: fromStorage?.technical_fluids_ratio_fact ?? null,
+    air_filter_ratio_plan: fromStorage?.air_filter_ratio_plan ?? defaults.air_filter_ratio,
+    air_filter_ratio_fact: fromStorage?.air_filter_ratio_fact ?? defaults.air_filter_ratio,
+    cabin_filter_ratio_plan: fromStorage?.cabin_filter_ratio_plan ?? defaults.cabin_filter_ratio,
+    cabin_filter_ratio_fact: fromStorage?.cabin_filter_ratio_fact ?? defaults.cabin_filter_ratio,
+    flush_usage_ratio_plan: fromStorage?.flush_usage_ratio_plan ?? defaults.flush_usage_ratio,
+    flush_usage_ratio_fact: fromStorage?.flush_usage_ratio_fact ?? defaults.flush_usage_ratio,
+    akpp_ratio_plan: fromStorage?.akpp_ratio_plan ?? defaults.akpp_ratio,
+    akpp_ratio_fact: fromStorage?.akpp_ratio_fact ?? defaults.akpp_ratio,
+    partial_replacement_ratio_plan: fromStorage?.partial_replacement_ratio_plan ?? defaults.partial_replacement_ratio,
+    partial_replacement_ratio_fact: fromStorage?.partial_replacement_ratio_fact ?? defaults.partial_replacement_ratio,
+    technical_fluids_ratio_plan: fromStorage?.technical_fluids_ratio_plan ?? defaults.technical_fluids_ratio,
+    technical_fluids_ratio_fact: fromStorage?.technical_fluids_ratio_fact ?? defaults.technical_fluids_ratio,
     additional_services_amount_plan: fromStorage?.additional_services_amount_plan ?? legacy?.additional_services_ratio_plan ?? null,
     additional_services_amount_fact: fromStorage?.additional_services_amount_fact ?? legacy?.additional_services_ratio_fact ?? null
   };
@@ -632,6 +655,8 @@ export const dataService = {
   getEmployeesByAdmin,
   reorderEmployeesByAdmin,
   getObjectsByAdmin,
+  getPlanRatioDefaults,
+  upsertPlanRatioDefaults,
   getPlanMetrics,
   upsertPlanMetrics,
   getMonth,
