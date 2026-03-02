@@ -66,34 +66,6 @@ const calculateRatioFromCount = (base: number | null, count: number | null): num
   return (count / base) * 100;
 };
 
-const formatDeviationValue = (plan: number | null, fact: number | null, unit: string): string => {
-  if (plan === null || fact === null) return '—';
-  const delta = fact - plan;
-  const deltaSign = delta > 0 ? '+' : '';
-  const absPart = `${deltaSign}${formatNumber(delta)} ${unit}`;
-
-  if (plan === 0) return `${absPart}; %: —`;
-
-  const pct = (delta / plan) * 100;
-  const pctSign = pct > 0 ? '+' : '';
-  return `${absPart}; ${pctSign}${formatNumber(pct)}%`;
-};
-
-const formatDeviationForRow = (row: MetricRow, metrics: ReturnType<typeof dataService.getPlanMetrics>): string => {
-  const planKey = `${row.key}_plan` as const;
-  const factKey = `${row.key}_fact` as const;
-  const planValue = metrics[planKey];
-  const factValue = metrics[factKey];
-
-  const ratioDeviation = formatDeviationValue(planValue, factValue, row.unit);
-  if (!row.isRatioFromCarEntries) return ratioDeviation;
-
-  const planCount = calculateCountFromRatio(metrics.car_entries_plan, planValue);
-  const factCount = calculateCountFromRatio(metrics.car_entries_fact, factValue);
-  const countDeviation = formatDeviationValue(planCount, factCount, 'шт');
-  return `${ratioDeviation} | ${countDeviation}`;
-};
-
 export const PlansPage = (): JSX.Element => {
   const admins = dataService.getAdmins();
   const [selectedAdminId, setSelectedAdminId] = useState(admins[0]?.id ?? dataService.SUPER_ADMIN_ID);
@@ -170,8 +142,7 @@ export const PlansPage = (): JSX.Element => {
               <th className="plans-group-header" colSpan={2}>
                 Факт
               </th>
-              <th rowSpan={2}>Отклонение</th>
-            </tr>
+              </tr>
             <tr>
               <th>%</th>
               <th>Количество / сумма</th>
@@ -244,8 +215,6 @@ export const PlansPage = (): JSX.Element => {
                       });
                     }}
                   />
-
-                  <td>{formatDeviationForRow(row, metrics)}</td>
                 </tr>
               );
             })}
