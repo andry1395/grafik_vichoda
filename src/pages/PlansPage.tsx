@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { dataService } from '../services/dataService';
 import { getAdminSessionId } from '../utils/adminAuth';
 
@@ -11,12 +11,20 @@ const getDefaultMonthKey = (): string => {
 };
 
 type MetricRow = {
-  key: 'car_entries' | 'average_check' | 'air_filter_ratio' | 'cabin_filter_ratio' | 'flush_usage_ratio' | 'akpp_ratio' | 'partial_replacement_ratio' | 'technical_fluids_ratio' | 'additional_services_amount';
+  key:
+    | 'car_entries'
+    | 'average_check'
+    | 'air_filter_ratio'
+    | 'cabin_filter_ratio'
+    | 'flush_usage_ratio'
+    | 'akpp_ratio'
+    | 'partial_replacement_ratio'
+    | 'technical_fluids_ratio'
+    | 'additional_services_amount';
   label: string;
   unit: string;
   isRatioFromCarEntries?: boolean;
 };
-
 
 const DEFAULT_RATIO_FIELDS: Array<{ key: keyof ReturnType<typeof dataService.getPlanRatioDefaults>; label: string }> = [
   { key: 'air_filter_ratio', label: 'Воздушные фильтры, %' },
@@ -60,6 +68,9 @@ const toPayload = (metrics: ReturnType<typeof dataService.getPlanMetrics>) => ({
   additional_services_amount_fact: metrics.additional_services_amount_fact
 });
 
+type MetricsPayload = ReturnType<typeof toPayload>;
+type MetricsPayloadKey = keyof MetricsPayload;
+
 const parseNumberOrNull = (value: string): number | null => {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -93,6 +104,7 @@ export const PlansPage = (): JSX.Element => {
   const [selectedAdminId, setSelectedAdminId] = useState(admins[0]?.id ?? dataService.SUPER_ADMIN_ID);
   const [selectedMonthKey, setSelectedMonthKey] = useState(getDefaultMonthKey);
   const [selectedObjectId, setSelectedObjectId] = useState('');
+  const [notice, setNotice] = useState('');
   const sessionAdminId = getAdminSessionId();
 
   const objects = dataService.getObjectsByAdmin(selectedAdminId).filter((item) => item.active);
@@ -105,11 +117,32 @@ export const PlansPage = (): JSX.Element => {
 
   const canEdit = sessionAdminId === selectedAdminId;
   const selectedAdminName = admins.find((admin) => admin.id === selectedAdminId)?.name ?? '—';
+
   const [defaultsDraft, setDefaultsDraft] = useState(() => dataService.getPlanRatioDefaults(selectedAdminId));
+  const [savedDefaults, setSavedDefaults] = useState(() => dataService.getPlanRatioDefaults(selectedAdminId));
+
+  const initialMetricsPayload = useMemo(() => {
+    if (!selectedObjectId) return toPayload(dataService.getPlanMetrics(selectedAdminId, '', selectedMonthKey));
+    return toPayload(dataService.getPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey));
+  }, [selectedAdminId, selectedObjectId, selectedMonthKey]);
+
+  const [metricsDraft, setMetricsDraft] = useState<MetricsPayload>(initialMetricsPayload);
+  const [savedMetrics, setSavedMetrics] = useState<MetricsPayload>(initialMetricsPayload);
 
   useEffect(() => {
-    setDefaultsDraft(dataService.getPlanRatioDefaults(selectedAdminId));
+    const nextDefaults = dataService.getPlanRatioDefaults(selectedAdminId);
+    setDefaultsDraft(nextDefaults);
+    setSavedDefaults(nextDefaults);
   }, [selectedAdminId]);
+
+  useEffect(() => {
+    if (!selectedObjectId) return;
+    const nextMetrics = toPayload(dataService.getPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey));
+    setMetricsDraft(nextMetrics);
+    setSavedMetrics(nextMetrics);
+  }, [selectedAdminId, selectedMonthKey, selectedObjectId]);
+
+  const isDirty = JSON.stringify(defaultsDraft) !== JSON.stringify(savedDefaults) || JSON.stringify(metricsDraft) !== JSON.stringify(savedMetrics);
 
   if (!selectedObjectId) {
     return (
@@ -120,40 +153,69 @@ export const PlansPage = (): JSX.Element => {
     );
   }
 
-  const metrics = dataService.getPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey);
+  const metricValue = (key: MetricsPayloadKey): number | null => metricsDraft[key];
 
   return (
     <section>
       <h1>Планы</h1>
-      <p>Для фильтров и промывки отдельно заполняйте % или количество (шт) — второе поле система рассчитает автоматически.</p>
+      <p>Для фильтров и промывки отдельно заполняйте % или количество — второе поле посчитается автоматически.</p>
+      {notice && <div className="notice">{notice}</div>}
 
       <div className="toolbar-row">
-        <label htmlFor="plan-admin-select">Администратор:</label>
-        <select id="plan-admin-select" value={selectedAdminId} onChange={(event) => setSelectedAdminId(event.target.value)}>
-          {admins.map((admin) => (
-            <option key={admin.id} value={admin.id}>
-              {admin.name}
-            </option>
-          ))}
-        </select>
-
-        <label htmlFor="plan-object-select">Объект:</label>
-        <select id="plan-object-select" value={selectedObjectId} onChange={(event) => setSelectedObjectId(event.target.value)}>
-          {objects.map((objectItem) => (
-            <option key={objectItem.id} value={objectItem.id}>
-              {objectItem.name_ru}
-            </option>
-          ))}
-        </select>
-
-        <label htmlFor="plan-month-select">Месяц:</label>
-        <select id="plan-month-select" value={selectedMonthKey} onChange={(event) => setSelectedMonthKey(event.target.value)}>
-          {PLAN_MONTHS.map((monthKey) => (
-            <option key={monthKey} value={monthKey}>
-              {monthKey}
-            </option>
-          ))}
-        </select>
+        <label>
+          Администратор
+          <select className="month-select" value={selectedAdminId} onChange={(event) => setSelectedAdminId(event.target.value)}>
+            {admins.map((admin) => (
+              <option key={admin.id} value={admin.id}>
+                {admin.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Объект
+          <select className="month-select" value={selectedObjectId} onChange={(event) => setSelectedObjectId(event.target.value)}>
+            {objects.map((objectItem) => (
+              <option key={objectItem.id} value={objectItem.id}>
+                {objectItem.short_ru || objectItem.name_ru}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Месяц
+          <select className="month-select" value={selectedMonthKey} onChange={(event) => setSelectedMonthKey(event.target.value)}>
+            {PLAN_MONTHS.map((monthKey) => (
+              <option key={monthKey} value={monthKey}>
+                {monthKey}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          disabled={!canEdit || !isDirty}
+          onClick={() => {
+            dataService.upsertPlanRatioDefaults(selectedAdminId, defaultsDraft);
+            dataService.upsertPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey, metricsDraft);
+            setSavedDefaults(defaultsDraft);
+            setSavedMetrics(metricsDraft);
+            setNotice('Сохранено');
+          }}
+        >
+          Сохранить
+        </button>
+        <button
+          type="button"
+          disabled={!isDirty}
+          onClick={() => {
+            setDefaultsDraft(savedDefaults);
+            setMetricsDraft(savedMetrics);
+            setNotice('Изменения отменены');
+          }}
+        >
+          Отменить изменения
+        </button>
       </div>
 
       <div className="summary-card">
@@ -172,9 +234,6 @@ export const PlansPage = (): JSX.Element => {
                 onChange={(event) => {
                   const nextValue = parseNumberOrNull(event.target.value);
                   setDefaultsDraft((prev) => ({ ...prev, [field.key]: nextValue }));
-                }}
-                onBlur={() => {
-                  dataService.upsertPlanRatioDefaults(selectedAdminId, defaultsDraft);
                 }}
               />
             </label>
@@ -195,7 +254,7 @@ export const PlansPage = (): JSX.Element => {
               <th className="plans-group-header" colSpan={2}>
                 Факт
               </th>
-              </tr>
+            </tr>
             <tr>
               <th>%</th>
               <th>Количество / сумма</th>
@@ -205,12 +264,14 @@ export const PlansPage = (): JSX.Element => {
           </thead>
           <tbody>
             {METRIC_ROWS.map((row) => {
-              const planKey = `${row.key}_plan` as const;
-              const factKey = `${row.key}_fact` as const;
-              const planValue = metrics[planKey];
-              const factValue = metrics[factKey];
-              const planCount = row.isRatioFromCarEntries ? calculateCountFromRatio(metrics.car_entries_plan, planValue) : planValue;
-              const factCount = row.isRatioFromCarEntries ? calculateCountFromRatio(metrics.car_entries_fact, factValue) : factValue;
+              const planKey = `${row.key}_plan` as MetricsPayloadKey;
+              const factKey = `${row.key}_fact` as MetricsPayloadKey;
+              const carEntriesPlan = metricValue('car_entries_plan');
+              const carEntriesFact = metricValue('car_entries_fact');
+              const planValue = metricValue(planKey);
+              const factValue = metricValue(factKey);
+              const planCount = row.isRatioFromCarEntries ? calculateCountFromRatio(carEntriesPlan, planValue) : planValue;
+              const factCount = row.isRatioFromCarEntries ? calculateCountFromRatio(carEntriesFact, factValue) : factValue;
               const valueUnitLabel = row.isRatioFromCarEntries ? 'шт' : row.unit;
 
               return (
@@ -221,25 +282,22 @@ export const PlansPage = (): JSX.Element => {
                     value={row.isRatioFromCarEntries ? (planValue === null ? '' : `${formatNumber(planValue)}%`) : '—'}
                     disabled={!canEdit || !row.isRatioFromCarEntries}
                     placeholder={row.isRatioFromCarEntries ? '%' : ''}
-                    onSave={(nextValue) => {
+                    onChange={(nextValue) => {
                       if (!row.isRatioFromCarEntries) return;
-                      dataService.upsertPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey, {
-                        ...toPayload(metrics),
-                        [planKey]: parseNumericToken(nextValue)
-                      });
+                      setMetricsDraft((prev) => ({ ...prev, [planKey]: parseNumericToken(nextValue) }));
                     }}
                   />
                   <PlanCell
                     value={planCount === null ? '' : `${formatNumber(planCount)} ${valueUnitLabel}`}
                     disabled={!canEdit}
                     placeholder={valueUnitLabel}
-                    onSave={(nextValue) => {
-                      dataService.upsertPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey, {
-                        ...toPayload(metrics),
+                    onChange={(nextValue) => {
+                      setMetricsDraft((prev) => ({
+                        ...prev,
                         [planKey]: row.isRatioFromCarEntries
-                          ? calculateRatioFromCount(metrics.car_entries_plan, parseNumericToken(nextValue))
+                          ? calculateRatioFromCount(prev.car_entries_plan, parseNumericToken(nextValue))
                           : parseNumericToken(nextValue)
-                      });
+                      }));
                     }}
                   />
 
@@ -247,25 +305,22 @@ export const PlansPage = (): JSX.Element => {
                     value={row.isRatioFromCarEntries ? (factValue === null ? '' : `${formatNumber(factValue)}%`) : '—'}
                     disabled={!canEdit || !row.isRatioFromCarEntries}
                     placeholder={row.isRatioFromCarEntries ? '%' : ''}
-                    onSave={(nextValue) => {
+                    onChange={(nextValue) => {
                       if (!row.isRatioFromCarEntries) return;
-                      dataService.upsertPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey, {
-                        ...toPayload(metrics),
-                        [factKey]: parseNumericToken(nextValue)
-                      });
+                      setMetricsDraft((prev) => ({ ...prev, [factKey]: parseNumericToken(nextValue) }));
                     }}
                   />
                   <PlanCell
                     value={factCount === null ? '' : `${formatNumber(factCount)} ${valueUnitLabel}`}
                     disabled={!canEdit}
                     placeholder={valueUnitLabel}
-                    onSave={(nextValue) => {
-                      dataService.upsertPlanMetrics(selectedAdminId, selectedObjectId, selectedMonthKey, {
-                        ...toPayload(metrics),
+                    onChange={(nextValue) => {
+                      setMetricsDraft((prev) => ({
+                        ...prev,
                         [factKey]: row.isRatioFromCarEntries
-                          ? calculateRatioFromCount(metrics.car_entries_fact, parseNumericToken(nextValue))
+                          ? calculateRatioFromCount(prev.car_entries_fact, parseNumericToken(nextValue))
                           : parseNumericToken(nextValue)
-                      });
+                      }));
                     }}
                   />
                 </tr>
@@ -281,12 +336,12 @@ export const PlansPage = (): JSX.Element => {
 const PlanCell = ({
   value,
   disabled,
-  onSave,
+  onChange,
   placeholder = ''
 }: {
   value: string;
   disabled: boolean;
-  onSave: (value: string) => void;
+  onChange: (value: string) => void;
   placeholder?: string;
 }): JSX.Element => {
   const [draft, setDraft] = useState(value);
@@ -304,8 +359,11 @@ const PlanCell = ({
         value={draft}
         placeholder={placeholder}
         disabled={disabled}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={() => onSave(draft)}
+        onChange={(event) => {
+          const next = event.target.value;
+          setDraft(next);
+          onChange(next);
+        }}
       />
     </td>
   );
