@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ScheduleTable } from '../components/ScheduleTable';
 import { dataService } from '../services/dataService';
-import type { SpecialValue } from '../types';
+import type { ScheduleEntry, SpecialValue } from '../types';
 import { buildDateKey, daysInMonth, formatDateDmy } from '../utils/date';
 import { exportMonthToXlsx } from '../utils/export';
 import { coverageIssueToText, getCoverageIssues } from '../utils/coverage';
@@ -19,6 +19,18 @@ export const AdminMonthPage = (): JSX.Element => {
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [dayFilter, setDayFilter] = useState('');
   const [objectFilter, setObjectFilter] = useState('ALL');
+  const [draftEntries, setDraftEntries] = useState<Record<string, ScheduleEntry>>({});
+
+  const getEntryKey = (employeeId: string, date: string): string => `${employeeId}_${date}`;
+
+  const loadDraftEntries = (): void => {
+    const latestMonth = dataService.getMonth(selectedAdminId, monthKey);
+    setDraftEntries(structuredClone(latestMonth.entries));
+  };
+
+  useEffect(() => {
+    loadDraftEntries();
+  }, [monthKey, selectedAdminId]);
 
   const activeEmployees = dataService.getEmployeesByAdmin(selectedAdminId).filter((employee) => employee.active);
   const objects = dataService.getObjectsByAdmin(selectedAdminId);
@@ -30,6 +42,16 @@ export const AdminMonthPage = (): JSX.Element => {
       ...request,
       employeeName: activeEmployees.find((employee) => employee.id === request.employee_id)?.full_name ?? 'Сотрудник удален'
     }));
+
+  const getDraftCellValue = (
+    employeeId: string,
+    date: string
+  ): { type: 'OBJECT'; value: string } | { type: 'SPECIAL'; value: SpecialValue } => {
+    const entry = draftEntries[getEntryKey(employeeId, date)];
+    if (!entry) return { type: 'SPECIAL', value: 'OFF' };
+    if (entry.kind === 'OBJECT' && entry.object_id) return { type: 'OBJECT', value: entry.object_id };
+    return { type: 'SPECIAL', value: entry.special ?? 'OFF' };
+  };
 
   const dates = useMemo(() => {
     const count = daysInMonth(2026, month);
@@ -49,11 +71,11 @@ export const AdminMonthPage = (): JSX.Element => {
     const datesToInspect = dayFilter && dates.includes(dayFilter) ? [dayFilter] : dates;
     return employeesByName.filter((employee) =>
       datesToInspect.some((date) => {
-        const cell = dataService.getCellValue(selectedAdminId, monthKey, employee.id, date);
+        const cell = getDraftCellValue(employee.id, date);
         return cell.type === 'OBJECT' && cell.value === objectFilter;
       })
     );
-  }, [dates, dayFilter, employeesByName, monthKey, objectFilter, selectedAdminId, tick]);
+  }, [dates, dayFilter, employeesByName, objectFilter, draftEntries]);
 
   const coverageIssues = useMemo(
     () =>
@@ -62,16 +84,16 @@ export const AdminMonthPage = (): JSX.Element => {
         month,
         employees: activeEmployees,
         objects,
-        getCellValue: (employeeId, date) => dataService.getCellValue(selectedAdminId, monthKey, employeeId, date)
+        getCellValue: (employeeId, date) => getDraftCellValue(employeeId, date)
       }),
-    [activeEmployees, month, monthKey, objects, selectedAdminId, tick]
+    [activeEmployees, month, objects, draftEntries]
   );
 
   const workDaysByMechanic = useMemo(
     () =>
       employees.map((employee) => {
         const workDays = dates.reduce((total, date) => {
-          const cell = dataService.getCellValue(selectedAdminId, monthKey, employee.id, date);
+          const cell = getDraftCellValue(employee.id, date);
           return cell.type === 'OBJECT' ? total + 1 : total;
         }, 0);
 
@@ -81,15 +103,13 @@ export const AdminMonthPage = (): JSX.Element => {
           workDays
         };
       }),
-    [dates, employees, monthKey, selectedAdminId, tick]
+    [dates, employees, draftEntries]
   );
 
   const offMechanicsOnDate = useMemo(() => {
     if (!dayFilter || !dates.includes(dayFilter)) return [];
-    return employees
-      .filter((employee) => dataService.getCellValue(selectedAdminId, monthKey, employee.id, dayFilter).type === 'SPECIAL')
-      .map((employee) => employee.full_name);
-  }, [dates, dayFilter, employees, monthKey, selectedAdminId, tick]);
+    return employees.filter((employee) => getDraftCellValue(employee.id, dayFilter).type === 'SPECIAL').map((employee) => employee.full_name);
+  }, [dates, dayFilter, employees, draftEntries]);
 
   const resetFilters = (): void => {
     setEmployeeSearch('');
@@ -146,7 +166,14 @@ export const AdminMonthPage = (): JSX.Element => {
         <button type="button" onClick={resetFilters}>
           Сбросить фильтры
         </button>
-        <button type="button" onClick={() => rerender('Сохранено')}>
+        <button
+          type="button"
+          onClick={() => {
+            dataService.replaceMonthEntries(selectedAdminId, monthKey, draftEntries);
+            loadDraftEntries();
+            rerender('Сохранено');
+          }}
+        >
           Сохранить
         </button>
         <button
@@ -158,6 +185,7 @@ export const AdminMonthPage = (): JSX.Element => {
               dates,
               activeEmployees.map((employee) => employee.id)
             );
+            loadDraftEntries();
             rerender('Месяц опубликован');
           }}
         >
@@ -167,6 +195,7 @@ export const AdminMonthPage = (): JSX.Element => {
           type="button"
           onClick={() => {
             dataService.setMonthStatus(selectedAdminId, monthKey, 'draft');
+            loadDraftEntries();
             rerender('Публикация снята');
           }}
         >
@@ -181,6 +210,7 @@ export const AdminMonthPage = (): JSX.Element => {
               activeEmployees.map((employee) => employee.id)
             );
             if (copied) {
+              loadDraftEntries();
               rerender('График протянут из прошлого месяца');
             } else {
               setNotice('Нет данных за прошлый месяц для протяжки');
@@ -198,14 +228,13 @@ export const AdminMonthPage = (): JSX.Element => {
               month,
               employees,
               objects,
-              getCellValue: (employeeId, date) => dataService.getCellValue(selectedAdminId, monthKey, employeeId, date)
+              getCellValue: (employeeId, date) => getDraftCellValue(employeeId, date)
             });
           }}
         >
           Выгрузить Excel (CSV)
         </button>
       </div>
-
 
       {(employeeSearch || objectFilter !== 'ALL' || dayFilter) && (
         <div className="filter-chips" aria-label="Активные фильтры">
@@ -218,7 +247,6 @@ export const AdminMonthPage = (): JSX.Element => {
           {dayFilter && <span className="filter-chip">Дата: {dayFilter}</span>}
         </div>
       )}
-
 
       {employees.length === 0 && (
         <div className="notice notice-error">
@@ -235,17 +263,25 @@ export const AdminMonthPage = (): JSX.Element => {
         employees={employees}
         objects={objects}
         selectedDate={dayFilter || null}
-        getCellValue={(employeeId, date) => dataService.getCellValue(selectedAdminId, monthKey, employeeId, date)}
+        getCellValue={(employeeId, date) => getDraftCellValue(employeeId, date)}
         setCellValue={(employeeId, date, value) => {
-          if (value.type === 'OBJECT') {
-            dataService.setEntry(selectedAdminId, monthKey, employeeId, date, { kind: 'OBJECT', object_id: value.value });
-          } else {
-            dataService.setEntry(selectedAdminId, monthKey, employeeId, date, { kind: 'SPECIAL', special: value.value as SpecialValue });
-          }
+          setDraftEntries((current) => {
+            const key = getEntryKey(employeeId, date);
+            if (value.type === 'OBJECT') {
+              return { ...current, [key]: { kind: 'OBJECT', object_id: value.value } };
+            }
+            return { ...current, [key]: { kind: 'SPECIAL', special: value.value as SpecialValue } };
+          });
           setTick((x) => x + 1);
         }}
         clearCellValue={(employeeId, date) => {
-          dataService.clearEntry(selectedAdminId, monthKey, employeeId, date);
+          setDraftEntries((current) => {
+            const key = getEntryKey(employeeId, date);
+            if (!current[key]) return current;
+            const next = { ...current };
+            delete next[key];
+            return next;
+          });
           setTick((x) => x + 1);
         }}
       />
