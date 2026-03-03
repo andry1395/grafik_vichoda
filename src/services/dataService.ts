@@ -389,6 +389,18 @@ const setEntry = (adminId: string, monthKey: string, employeeId: string, date: s
   setToStorage(data);
 };
 
+const replaceMonthEntries = (adminId: string, monthKey: string, entries: Record<string, ScheduleEntry>): void => {
+  const data = getFromStorage();
+  const storageKey = monthStorageKey(adminId, monthKey);
+  if (!data.months[storageKey]) data.months[storageKey] = { status: 'draft', entries: {} };
+
+  data.months[storageKey].entries = Object.fromEntries(
+    Object.entries(entries).map(([entryKey, entry]) => [entryKey, sanitizeEntry(entry)])
+  );
+
+  setToStorage(data);
+};
+
 const clearEntry = (adminId: string, monthKey: string, employeeId: string, date: string): void => {
   const data = getFromStorage();
   const storageKey = monthStorageKey(adminId, monthKey);
@@ -442,39 +454,39 @@ const extendMonthFromPrevious = (adminId: string, monthKey: string, employeeIds:
   const sourceDays = new Date(previousYear, previousMonth, 0).getDate();
   const targetDays = new Date(year, month, 0).getDate();
 
-  const getWeekdayOccurrence = (y: number, m: number, day: number): number => {
-    const targetWeekday = new Date(y, m - 1, day).getDay();
-    let occurrence = 0;
-    for (let index = 1; index <= day; index += 1) {
-      if (new Date(y, m - 1, index).getDay() === targetWeekday) occurrence += 1;
-    }
-    return occurrence;
+  const entryToToken = (entry: ScheduleEntry | undefined): string => {
+    if (!entry) return '__EMPTY__';
+    if (entry.kind === 'OBJECT') return `OBJECT:${entry.object_id ?? ''}`;
+    return `SPECIAL:${entry.special ?? 'OFF'}`;
   };
 
-  const findSourceDayByWeekday = (targetDay: number): number => {
-    const targetWeekday = new Date(year, month - 1, targetDay).getDay();
-    const occurrence = getWeekdayOccurrence(year, month, targetDay);
-    let found = 0;
-
-    for (let sourceDay = 1; sourceDay <= sourceDays; sourceDay += 1) {
-      if (new Date(previousYear, previousMonth - 1, sourceDay).getDay() !== targetWeekday) continue;
-      found += 1;
-      if (found === occurrence) return sourceDay;
+  const detectCycleLength = (tokens: string[]): number => {
+    for (let cycle = 1; cycle <= tokens.length; cycle += 1) {
+      let matches = true;
+      for (let index = 0; index < tokens.length; index += 1) {
+        if (tokens[index] !== tokens[index % cycle]) {
+          matches = false;
+          break;
+        }
+      }
+      if (matches) return cycle;
     }
-
-    for (let sourceDay = sourceDays; sourceDay >= 1; sourceDay -= 1) {
-      if (new Date(previousYear, previousMonth - 1, sourceDay).getDay() === targetWeekday) return sourceDay;
-    }
-
-    return ((targetDay - 1) % sourceDays) + 1;
+    return tokens.length;
   };
 
   for (const employeeId of employeeIds) {
+    const sourceEntriesByDay: Array<ScheduleEntry | undefined> = Array.from({ length: sourceDays }, (_, index) => {
+      const sourceDate = `${previousMonthKey}-${String(index + 1).padStart(2, '0')}`;
+      return sourceMonth.entries[getEntryKey(employeeId, sourceDate)];
+    });
+
+    const cycleLength = detectCycleLength(sourceEntriesByDay.map((entry) => entryToToken(entry)));
+    const cycleEntries = sourceEntriesByDay.slice(0, cycleLength);
+
     for (let targetDay = 1; targetDay <= targetDays; targetDay += 1) {
-      const sourceDay = findSourceDayByWeekday(targetDay);
-      const sourceDate = `${previousMonthKey}-${String(sourceDay).padStart(2, '0')}`;
+      const cycleIndex = (sourceDays + targetDay - 1) % cycleLength;
+      const sourceEntry = cycleEntries[cycleIndex];
       const targetDate = `${monthKey}-${String(targetDay).padStart(2, '0')}`;
-      const sourceEntry = sourceMonth.entries[getEntryKey(employeeId, sourceDate)];
       const targetEntryKey = getEntryKey(employeeId, targetDate);
 
       if (sourceEntry) {
@@ -666,6 +678,7 @@ export const dataService = {
   removeObject,
   setEntry,
   clearEntry,
+  replaceMonthEntries,
   setMonthStatus,
   publishMonth,
   extendMonthFromPrevious,
