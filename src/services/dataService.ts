@@ -389,6 +389,18 @@ const setEntry = (adminId: string, monthKey: string, employeeId: string, date: s
   setToStorage(data);
 };
 
+const replaceMonthEntries = (adminId: string, monthKey: string, entries: Record<string, ScheduleEntry>): void => {
+  const data = getFromStorage();
+  const storageKey = monthStorageKey(adminId, monthKey);
+  if (!data.months[storageKey]) data.months[storageKey] = { status: 'draft', entries: {} };
+
+  data.months[storageKey].entries = Object.fromEntries(
+    Object.entries(entries).map(([entryKey, entry]) => [entryKey, sanitizeEntry(entry)])
+  );
+
+  setToStorage(data);
+};
+
 const clearEntry = (adminId: string, monthKey: string, employeeId: string, date: string): void => {
   const data = getFromStorage();
   const storageKey = monthStorageKey(adminId, monthKey);
@@ -666,6 +678,7 @@ export const dataService = {
   removeObject,
   setEntry,
   clearEntry,
+  replaceMonthEntries,
   setMonthStatus,
   publishMonth,
   extendMonthFromPrevious,
