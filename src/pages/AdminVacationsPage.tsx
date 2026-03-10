@@ -35,6 +35,7 @@ export const AdminVacationsPage = (): JSX.Element => {
   const employees = dataService.getEmployeesByAdmin(selectedAdminId);
   const requests = dataService.getVacationRequestsByAdmin(selectedAdminId);
   const employeeById = useMemo(() => new Map(employees.map((employee) => [employee.id, employee.full_name])), [employees]);
+  const employeeObjectById = useMemo(() => new Map(employees.map((employee) => [employee.id, employee])), [employees]);
 
   const filteredRequests = requests.filter((request) => {
     if (!employeeFilter) return true;
@@ -77,6 +78,10 @@ export const AdminVacationsPage = (): JSX.Element => {
         const left = overlapTableRows[i];
         const right = overlapTableRows[j];
         if (left.employee_id === right.employee_id) continue;
+        const leftEmployee = employeeObjectById.get(left.employee_id);
+        const rightEmployee = employeeObjectById.get(right.employee_id);
+        if (!leftEmployee?.primary_object_id || !rightEmployee?.primary_object_id) continue;
+        if (leftEmployee.primary_object_id !== rightEmployee.primary_object_id) continue;
         if (!rangesOverlap(left.start_date, left.end_date, right.start_date, right.end_date)) continue;
 
         const overlapDays = countOverlapDays(left.start_date, left.end_date, right.start_date, right.end_date);
@@ -91,7 +96,7 @@ export const AdminVacationsPage = (): JSX.Element => {
     }
 
     return new Map(Array.from(details.entries()).map(([id, items]) => [id, Array.from(new Set(items))]));
-  }, [overlapTableRows]);
+  }, [employeeObjectById, overlapTableRows]);
 
   const exportRows = filteredRequests.map((request) => ({
     employeeName: employeeById.get(request.employee_id) ?? 'Сотрудник удален',
@@ -107,6 +112,28 @@ export const AdminVacationsPage = (): JSX.Element => {
     startDate && endDate
       ? `Расчет отпуска: ${editingVacationDays} дн.`
       : 'Выберите дату начала и окончания, чтобы увидеть расчет дней отпуска';
+
+  const editingOverlapMessage = useMemo(() => {
+    if (!editingId || !startDate || !endDate) return '';
+    const currentRequest = requests.find((item) => item.id === editingId);
+    if (!currentRequest) return '';
+    const employee = employeeObjectById.get(currentRequest.employee_id);
+    if (!employee?.primary_object_id) return 'У сотрудника не указан главный объект. Сохранение отпуска недоступно.';
+
+    for (const request of requests) {
+      if (request.id === editingId) continue;
+      const otherEmployee = employeeObjectById.get(request.employee_id);
+      if (!otherEmployee?.primary_object_id) continue;
+      if (otherEmployee.primary_object_id !== employee.primary_object_id) continue;
+      if (!rangesOverlap(startDate, endDate, request.start_date, request.end_date)) continue;
+      const overlapDays = countOverlapDays(startDate, endDate, request.start_date, request.end_date);
+      if (!overlapDays) continue;
+      const otherName = employeeById.get(request.employee_id) ?? 'Сотрудник удален';
+      return `Пересечение с сотрудником ${otherName} (${overlapDays} дн.) по главному объекту.`;
+    }
+
+    return '';
+  }, [editingId, employeeById, employeeObjectById, endDate, requests, startDate]);
 
   const resetOverlapFilters = (): void => {
     setYearFilter('all');
@@ -170,6 +197,7 @@ export const AdminVacationsPage = (): JSX.Element => {
                         title={endDateHoverTitle}
                         aria-label="Дата окончания отпуска. Наведите курсор для подсказки по количеству дней"
                       />
+                      {editingOverlapMessage && <span className="field-error">{editingOverlapMessage}</span>}
                     </div>
                   ) : (
                     `${formatDateDmy(request.start_date)} — ${formatDateDmy(request.end_date)}`
@@ -186,6 +214,10 @@ export const AdminVacationsPage = (): JSX.Element => {
                           const days = countVacationDaysByLaborCode(startDate, endDate);
                           if (!days) {
                             setNotice('Проверьте даты отпуска.');
+                            return;
+                          }
+                          if (editingOverlapMessage) {
+                            setNotice(`Нельзя сохранить отпуск. ${editingOverlapMessage}`);
                             return;
                           }
                           dataService.updateVacationRequest(request.id, {

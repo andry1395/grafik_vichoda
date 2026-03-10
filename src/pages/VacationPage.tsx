@@ -36,14 +36,15 @@ export const VacationPage = (): JSX.Element => {
     [selectedAdminId]
   );
   const employee = useMemo(() => employees.find((employeeItem) => employeeItem.id === employeeId) ?? null, [employeeId, employees]);
-  const employeeById = useMemo(() => new Map(employees.map((item) => [item.id, item.full_name])), [employees]);
+  const employeeNameById = useMemo(() => new Map(employees.map((item) => [item.id, item.full_name])), [employees]);
+  const employeeById = useMemo(() => new Map(employees.map((item) => [item.id, item])), [employees]);
 
   const allRequests = useMemo(
     () =>
       dataService
         .getVacationRequestsByAdmin(selectedAdminId)
-        .map((request) => ({ ...request, employeeName: employeeById.get(request.employee_id) ?? 'Сотрудник удален' })),
-    [employeeById, selectedAdminId]
+        .map((request) => ({ ...request, employeeName: employeeNameById.get(request.employee_id) ?? 'Сотрудник удален' })),
+    [employeeNameById, selectedAdminId]
   );
 
   const existingRequests = employee
@@ -82,6 +83,10 @@ export const VacationPage = (): JSX.Element => {
         const left = filteredRequests[i];
         const right = filteredRequests[j];
         if (left.employee_id === right.employee_id) continue;
+        const leftEmployee = employeeById.get(left.employee_id);
+        const rightEmployee = employeeById.get(right.employee_id);
+        if (!leftEmployee?.primary_object_id || !rightEmployee?.primary_object_id) continue;
+        if (leftEmployee.primary_object_id !== rightEmployee.primary_object_id) continue;
         if (!rangesOverlap(left.start_date, left.end_date, right.start_date, right.end_date)) continue;
 
         const overlapDays = countOverlapDays(left.start_date, left.end_date, right.start_date, right.end_date);
@@ -96,7 +101,7 @@ export const VacationPage = (): JSX.Element => {
     }
 
     return new Map(Array.from(details.entries()).map(([id, items]) => [id, Array.from(new Set(items))]));
-  }, [filteredRequests]);
+  }, [employeeById, filteredRequests]);
 
   const calculatedDays = startDate && endDate ? countVacationDaysByLaborCode(startDate, endDate) : 0;
   const endDateHoverTitle =
@@ -115,6 +120,24 @@ export const VacationPage = (): JSX.Element => {
     setMonthFilter('all');
     setTableEmployeeFilter('all');
   };
+
+  const blockingOverlap = useMemo(() => {
+    if (!employee || !startDate || !endDate) return null;
+    if (!employee.primary_object_id) return { message: 'У сотрудника не указан главный объект. Заполните его в разделе «Сотрудники».', days: 0 };
+
+    for (const request of allRequests) {
+      if (request.employee_id === employee.id) continue;
+      const otherEmployee = employeeById.get(request.employee_id);
+      if (!otherEmployee?.primary_object_id) continue;
+      if (otherEmployee.primary_object_id !== employee.primary_object_id) continue;
+      if (!rangesOverlap(startDate, endDate, request.start_date, request.end_date)) continue;
+      const overlapDays = countOverlapDays(startDate, endDate, request.start_date, request.end_date);
+      if (!overlapDays) continue;
+      return { message: `Пересечение с сотрудником ${request.employeeName} (${overlapDays} дн.) по главному объекту.`, days: overlapDays };
+    }
+
+    return null;
+  }, [allRequests, employee, employeeById, endDate, startDate]);
 
   return (
     <section>
@@ -165,6 +188,7 @@ export const VacationPage = (): JSX.Element => {
             aria-label="Дата окончания отпуска. Наведите курсор для подсказки по количеству дней"
           />
           {dateRangeError && <span className="field-error">{dateRangeError}</span>}
+          {blockingOverlap && <span className="field-error">{blockingOverlap.message}</span>}
           <button
             type="button"
             disabled={Boolean(dateRangeError)}
@@ -176,6 +200,16 @@ export const VacationPage = (): JSX.Element => {
 
               if (dateRangeError) {
                 setNotice(dateRangeError);
+                return;
+              }
+
+              if (!employee.primary_object_id) {
+                setNotice('Нельзя сохранить отпуск: у сотрудника не указан главный объект.');
+                return;
+              }
+
+              if (blockingOverlap) {
+                setNotice(`Нельзя сохранить отпуск. ${blockingOverlap.message}`);
                 return;
               }
 
