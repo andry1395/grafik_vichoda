@@ -17,7 +17,7 @@ export const MePage = (): JSX.Element => {
   const [nameFilter, setNameFilter] = useState('');
   const [month, setMonth] = useState(currentMonthNumber());
   const [dayFilter, setDayFilter] = useState('');
-  const [objectFilter, setObjectFilter] = useState('ALL');
+  const [objectFilterIds, setObjectFilterIds] = useState<string[]>([]);
 
   const monthKey = `2026-${String(month).padStart(2, '0')}`;
   const monthData = dataService.getMonth(selectedAdminId, monthKey);
@@ -37,16 +37,17 @@ export const MePage = (): JSX.Element => {
   }, [employeesByAdmin, nameFilter]);
 
   const visibleEmployees = useMemo(() => {
-    if (objectFilter === 'ALL') return visibleEmployeesByName;
+    if (objectFilterIds.length === 0) return visibleEmployeesByName;
     const datesToInspect = dayFilter && dates.includes(dayFilter) ? [dayFilter] : dates;
 
     return visibleEmployeesByName.filter((employee) =>
       datesToInspect.some((date) => {
         const entry = dataService.getVisibleEntryForEmployee(selectedAdminId, monthKey, employee.id, date);
-        return entry?.kind === 'OBJECT' && entry.object_id === objectFilter;
+        if (entry?.kind !== 'OBJECT' || !entry.object_id) return false;
+        return objectFilterIds.includes(entry.object_id);
       })
     );
-  }, [dates, dayFilter, monthKey, objectFilter, selectedAdminId, visibleEmployeesByName]);
+  }, [dates, dayFilter, monthKey, objectFilterIds, selectedAdminId, visibleEmployeesByName]);
 
   const coverageIssues = useMemo(
     () =>
@@ -88,7 +89,7 @@ export const MePage = (): JSX.Element => {
 
   const resetFilters = (): void => {
     setNameFilter('');
-    setObjectFilter('ALL');
+    setObjectFilterIds([]);
     setDayFilter('');
   };
 
@@ -110,14 +111,26 @@ export const MePage = (): JSX.Element => {
             </option>
           ))}
         </select>
-        <select value={objectFilter} onChange={(event) => setObjectFilter(event.target.value)}>
-          <option value="ALL">Все объекты</option>
-          {objectsByAdmin.map((objectItem) => (
-            <option key={objectItem.id} value={objectItem.id}>
-              {objectItem.short_ru || objectItem.name_ru}
-            </option>
-          ))}
-        </select>
+        <div className="multi-select-filter">
+          <label htmlFor="object-filter">Объекты</label>
+          <select
+            id="object-filter"
+            className="multi-select"
+            multiple
+            size={1}
+            value={objectFilterIds}
+            onChange={(event) =>
+              setObjectFilterIds(Array.from(event.target.selectedOptions, (option) => option.value))
+            }
+          >
+            {objectsByAdmin.map((objectItem) => (
+              <option key={objectItem.id} value={objectItem.id}>
+                {objectItem.short_ru || objectItem.name_ru}
+              </option>
+            ))}
+          </select>
+          <span className="multi-select-hint">Выберите один или несколько объектов (Ctrl/Cmd + клик).</span>
+        </div>
         <input
           type="date"
           min={`2026-${String(month).padStart(2, '0')}-01`}
@@ -144,12 +157,15 @@ export const MePage = (): JSX.Element => {
       </div>
 
 
-      {(nameFilter || objectFilter !== 'ALL' || dayFilter) && (
+      {(nameFilter || objectFilterIds.length > 0 || dayFilter) && (
         <div className="filter-chips" aria-label="Активные фильтры">
           {nameFilter && <span className="filter-chip">Имя: {nameFilter}</span>}
-          {objectFilter !== 'ALL' && (
+          {objectFilterIds.length > 0 && (
             <span className="filter-chip">
-              Объект: {objectsByAdmin.find((item) => item.id === objectFilter)?.short_ru || objectsByAdmin.find((item) => item.id === objectFilter)?.name_ru || '—'}
+              Объекты: {objectFilterIds
+                .map((id) => objectsByAdmin.find((item) => item.id === id)?.short_ru || objectsByAdmin.find((item) => item.id === id)?.name_ru)
+                .filter(Boolean)
+                .join(', ')}
             </span>
           )}
           {dayFilter && <span className="filter-chip">Дата: {dayFilter}</span>}
