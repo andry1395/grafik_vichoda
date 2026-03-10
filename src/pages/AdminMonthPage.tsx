@@ -9,6 +9,8 @@ import { coverageIssueToText, getCoverageIssues } from '../utils/coverage';
 import { getSelectedAdminId } from '../utils/adminAuth';
 import { doesVacationIntersectMonth } from '../utils/vacation';
 
+type PeriodMode = 'MONTH' | 'DAY' | 'WEEK' | 'CUSTOM';
+
 export const AdminMonthPage = (): JSX.Element => {
   const params = useParams<{ month: string }>();
   const month = Number(params.month ?? '1');
@@ -17,7 +19,10 @@ export const AdminMonthPage = (): JSX.Element => {
   const [tick, setTick] = useState(0);
   const [notice, setNotice] = useState<string>('');
   const [employeeSearch, setEmployeeSearch] = useState('');
-  const [dayFilter, setDayFilter] = useState('');
+  const [periodMode, setPeriodMode] = useState<PeriodMode>('MONTH');
+  const [periodDate, setPeriodDate] = useState('');
+  const [customFromDate, setCustomFromDate] = useState('');
+  const [customToDate, setCustomToDate] = useState('');
   const [objectFilterIds, setObjectFilterIds] = useState<string[]>([]);
   const [draftEntries, setDraftEntries] = useState<Record<string, ScheduleEntry>>({});
 
@@ -58,6 +63,36 @@ export const AdminMonthPage = (): JSX.Element => {
     return Array.from({ length: count }, (_, idx) => buildDateKey(2026, month, idx + 1));
   }, [month, tick]);
 
+  useEffect(() => {
+    const firstDate = dates[0] ?? '';
+    const lastDate = dates[dates.length - 1] ?? '';
+    setPeriodDate(firstDate);
+    setCustomFromDate(firstDate);
+    setCustomToDate(lastDate);
+  }, [dates]);
+
+  const periodDates = useMemo(() => {
+    if (dates.length === 0) return [] as string[];
+    if (periodMode === 'MONTH') return dates;
+
+    if (periodMode === 'DAY') {
+      return dates.includes(periodDate) ? [periodDate] : dates;
+    }
+
+    if (periodMode === 'WEEK') {
+      const anchorIndex = dates.indexOf(periodDate);
+      if (anchorIndex < 0) return dates;
+      const weekStart = Math.floor(anchorIndex / 7) * 7;
+      return dates.slice(weekStart, weekStart + 7);
+    }
+
+    const fromIndex = dates.indexOf(customFromDate);
+    const toIndex = dates.indexOf(customToDate);
+    if (fromIndex < 0 || toIndex < 0) return dates;
+    const [start, end] = fromIndex <= toIndex ? [fromIndex, toIndex] : [toIndex, fromIndex];
+    return dates.slice(start, end + 1);
+  }, [customFromDate, customToDate, dates, periodDate, periodMode]);
+
   const employeesByName = useMemo(
     () =>
       activeEmployees.filter((employee) =>
@@ -68,14 +103,14 @@ export const AdminMonthPage = (): JSX.Element => {
 
   const employees = useMemo(() => {
     if (objectFilterIds.length === 0) return employeesByName;
-    const datesToInspect = dayFilter && dates.includes(dayFilter) ? [dayFilter] : dates;
+
     return employeesByName.filter((employee) =>
-      datesToInspect.some((date) => {
+      periodDates.some((date) => {
         const cell = getDraftCellValue(employee.id, date);
         return cell.type === 'OBJECT' && objectFilterIds.includes(cell.value);
       })
     );
-  }, [dates, dayFilter, employeesByName, objectFilterIds, draftEntries]);
+  }, [employeesByName, objectFilterIds, periodDates, draftEntries]);
 
   const coverageIssues = useMemo(
     () =>
@@ -92,7 +127,7 @@ export const AdminMonthPage = (): JSX.Element => {
   const workDaysByMechanic = useMemo(
     () =>
       employees.map((employee) => {
-        const workDays = dates.reduce((total, date) => {
+        const workDays = periodDates.reduce((total, date) => {
           const cell = getDraftCellValue(employee.id, date);
           return cell.type === 'OBJECT' ? total + 1 : total;
         }, 0);
@@ -103,18 +138,23 @@ export const AdminMonthPage = (): JSX.Element => {
           workDays
         };
       }),
-    [dates, employees, draftEntries]
+    [employees, periodDates, draftEntries]
   );
 
+  const focusDate = periodMode === 'DAY' && periodDates.length > 0 ? periodDates[0] : '';
+
   const offMechanicsOnDate = useMemo(() => {
-    if (!dayFilter || !dates.includes(dayFilter)) return [];
-    return employees.filter((employee) => getDraftCellValue(employee.id, dayFilter).type === 'SPECIAL').map((employee) => employee.full_name);
-  }, [dates, dayFilter, employees, draftEntries]);
+    if (!focusDate) return [];
+    return employees.filter((employee) => getDraftCellValue(employee.id, focusDate).type === 'SPECIAL').map((employee) => employee.full_name);
+  }, [employees, focusDate, draftEntries]);
 
   const resetFilters = (): void => {
     setEmployeeSearch('');
     setObjectFilterIds([]);
-    setDayFilter('');
+    setPeriodMode('MONTH');
+    setPeriodDate(dates[0] ?? '');
+    setCustomFromDate(dates[0] ?? '');
+    setCustomToDate(dates[dates.length - 1] ?? '');
   };
 
   const rerender = (message: string): void => {
@@ -147,6 +187,39 @@ export const AdminMonthPage = (): JSX.Element => {
           onChange={(event) => setEmployeeSearch(event.target.value)}
           placeholder="Поиск сотрудника по имени"
         />
+        <select value={periodMode} onChange={(event) => setPeriodMode(event.target.value as PeriodMode)}>
+          <option value="MONTH">Период: месяц</option>
+          <option value="WEEK">Период: неделя</option>
+          <option value="DAY">Период: день</option>
+          <option value="CUSTOM">Период: произвольный</option>
+        </select>
+        {(periodMode === 'DAY' || periodMode === 'WEEK') && (
+          <input
+            type="date"
+            min={`2026-${String(month).padStart(2, '0')}-01`}
+            max={`2026-${String(month).padStart(2, '0')}-31`}
+            value={periodDate}
+            onChange={(event) => setPeriodDate(event.target.value)}
+          />
+        )}
+        {periodMode === 'CUSTOM' && (
+          <>
+            <input
+              type="date"
+              min={`2026-${String(month).padStart(2, '0')}-01`}
+              max={`2026-${String(month).padStart(2, '0')}-31`}
+              value={customFromDate}
+              onChange={(event) => setCustomFromDate(event.target.value)}
+            />
+            <input
+              type="date"
+              min={`2026-${String(month).padStart(2, '0')}-01`}
+              max={`2026-${String(month).padStart(2, '0')}-31`}
+              value={customToDate}
+              onChange={(event) => setCustomToDate(event.target.value)}
+            />
+          </>
+        )}
         <div className="multi-select-filter">
           <label htmlFor="object-filter">Объекты</label>
           <select
@@ -166,14 +239,6 @@ export const AdminMonthPage = (): JSX.Element => {
             ))}
           </select>
         </div>
-        <input
-          type="date"
-          min={`2026-${String(month).padStart(2, '0')}-01`}
-          max={`2026-${String(month).padStart(2, '0')}-31`}
-          value={dayFilter}
-          onChange={(event) => setDayFilter(event.target.value)}
-          placeholder="Дата"
-        />
         <button type="button" onClick={resetFilters}>
           Сбросить фильтры
         </button>
@@ -247,7 +312,7 @@ export const AdminMonthPage = (): JSX.Element => {
         </button>
       </div>
 
-      {(employeeSearch || objectFilterIds.length > 0 || dayFilter) && (
+      {(employeeSearch || objectFilterIds.length > 0 || periodMode !== 'MONTH') && (
         <div className="filter-chips" aria-label="Активные фильтры">
           {employeeSearch && <span className="filter-chip">Имя: {employeeSearch}</span>}
           {objectFilterIds.length > 0 && (
@@ -258,7 +323,7 @@ export const AdminMonthPage = (): JSX.Element => {
                 .join(', ')}
             </span>
           )}
-          {dayFilter && <span className="filter-chip">Дата: {dayFilter}</span>}
+          {periodMode !== 'MONTH' && <span className="filter-chip">Период: {periodMode === 'DAY' ? 'День' : periodMode === 'WEEK' ? 'Неделя' : 'Произвольный'}</span>}
         </div>
       )}
 
@@ -276,7 +341,7 @@ export const AdminMonthPage = (): JSX.Element => {
         month={month}
         employees={employees}
         objects={objects}
-        selectedDate={dayFilter || null}
+        visibleDates={periodDates}
         getCellValue={(employeeId, date) => getDraftCellValue(employeeId, date)}
         setCellValue={(employeeId, date, value) => {
           setDraftEntries((current) => {
@@ -307,9 +372,6 @@ export const AdminMonthPage = (): JSX.Element => {
             {workDaysByMechanic.map((item) => (
               <li key={item.id}>
                 <strong>{item.name}</strong>: {item.workDays} дн.
-                <div className="workload-bar">
-                  <span style={{ width: `${Math.min(100, (item.workDays / dates.length) * 100)}%` }} />
-                </div>
               </li>
             ))}
           </ul>
@@ -317,9 +379,9 @@ export const AdminMonthPage = (): JSX.Element => {
 
         <div className="summary-card">
           <h3>Кто выходной в выбранную дату</h3>
-          {!dayFilter && <p>Выберите дату в фильтре выше.</p>}
-          {dayFilter && offMechanicsOnDate.length === 0 && <p>На {dayFilter} выходных нет.</p>}
-          {dayFilter && offMechanicsOnDate.length > 0 && (
+          {periodMode !== 'DAY' && <p>Для этой карточки выберите режим периода «День».</p>}
+          {periodMode === 'DAY' && offMechanicsOnDate.length === 0 && <p>На {focusDate} выходных нет.</p>}
+          {periodMode === 'DAY' && offMechanicsOnDate.length > 0 && (
             <ul>
               {offMechanicsOnDate.map((name) => (
                 <li key={name}>{name}</li>

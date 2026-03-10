@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScheduleTable } from '../components/ScheduleTable';
 import { dataService } from '../services/dataService';
 import { MONTHS_2026 } from '../utils/constants';
@@ -12,11 +12,16 @@ const currentMonthNumber = (): number => {
   return current >= 1 && current <= 12 ? current : 1;
 };
 
+type PeriodMode = 'MONTH' | 'DAY' | 'WEEK' | 'CUSTOM';
+
 export const MePage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
   const [nameFilter, setNameFilter] = useState('');
   const [month, setMonth] = useState(currentMonthNumber());
-  const [dayFilter, setDayFilter] = useState('');
+  const [periodMode, setPeriodMode] = useState<PeriodMode>('MONTH');
+  const [periodDate, setPeriodDate] = useState('');
+  const [customFromDate, setCustomFromDate] = useState('');
+  const [customToDate, setCustomToDate] = useState('');
   const [objectFilterIds, setObjectFilterIds] = useState<string[]>([]);
 
   const monthKey = `2026-${String(month).padStart(2, '0')}`;
@@ -29,6 +34,36 @@ export const MePage = (): JSX.Element => {
     return Array.from({ length: count }, (_, idx) => buildDateKey(2026, month, idx + 1));
   }, [month]);
 
+  useEffect(() => {
+    const firstDate = dates[0] ?? '';
+    const lastDate = dates[dates.length - 1] ?? '';
+    setPeriodDate(firstDate);
+    setCustomFromDate(firstDate);
+    setCustomToDate(lastDate);
+  }, [dates]);
+
+  const periodDates = useMemo(() => {
+    if (dates.length === 0) return [] as string[];
+    if (periodMode === 'MONTH') return dates;
+
+    if (periodMode === 'DAY') {
+      return dates.includes(periodDate) ? [periodDate] : dates;
+    }
+
+    if (periodMode === 'WEEK') {
+      const anchorIndex = dates.indexOf(periodDate);
+      if (anchorIndex < 0) return dates;
+      const weekStart = Math.floor(anchorIndex / 7) * 7;
+      return dates.slice(weekStart, weekStart + 7);
+    }
+
+    const fromIndex = dates.indexOf(customFromDate);
+    const toIndex = dates.indexOf(customToDate);
+    if (fromIndex < 0 || toIndex < 0) return dates;
+    const [start, end] = fromIndex <= toIndex ? [fromIndex, toIndex] : [toIndex, fromIndex];
+    return dates.slice(start, end + 1);
+  }, [customFromDate, customToDate, dates, periodDate, periodMode]);
+
   const visibleEmployeesByName = useMemo(() => {
     const normalized = nameFilter.trim().toLocaleLowerCase('ru-RU');
     const active = employeesByAdmin.filter((employee) => employee.active);
@@ -38,16 +73,15 @@ export const MePage = (): JSX.Element => {
 
   const visibleEmployees = useMemo(() => {
     if (objectFilterIds.length === 0) return visibleEmployeesByName;
-    const datesToInspect = dayFilter && dates.includes(dayFilter) ? [dayFilter] : dates;
 
     return visibleEmployeesByName.filter((employee) =>
-      datesToInspect.some((date) => {
+      periodDates.some((date) => {
         const entry = dataService.getVisibleEntryForEmployee(selectedAdminId, monthKey, employee.id, date);
         if (entry?.kind !== 'OBJECT' || !entry.object_id) return false;
         return objectFilterIds.includes(entry.object_id);
       })
     );
-  }, [dates, dayFilter, monthKey, objectFilterIds, selectedAdminId, visibleEmployeesByName]);
+  }, [monthKey, objectFilterIds, periodDates, selectedAdminId, visibleEmployeesByName]);
 
   const coverageIssues = useMemo(
     () =>
@@ -64,7 +98,7 @@ export const MePage = (): JSX.Element => {
   const workDaysByMechanic = useMemo(() => {
     if (monthData.status !== 'published') return [];
     return visibleEmployees.map((employee) => {
-      const workDays = dates.reduce((total, date) => {
+      const workDays = periodDates.reduce((total, date) => {
         const entry = dataService.getVisibleEntryForEmployee(selectedAdminId, monthKey, employee.id, date);
         return entry?.kind === 'OBJECT' ? total + 1 : total;
       }, 0);
@@ -75,22 +109,27 @@ export const MePage = (): JSX.Element => {
         workDays
       };
     });
-  }, [dates, monthData.status, monthKey, selectedAdminId, visibleEmployees]);
+  }, [monthData.status, monthKey, periodDates, selectedAdminId, visibleEmployees]);
+
+  const focusDate = periodMode === 'DAY' && periodDates.length > 0 ? periodDates[0] : '';
 
   const offMechanicsOnDate = useMemo(() => {
-    if (monthData.status !== 'published' || !dayFilter || !dates.includes(dayFilter)) return [];
+    if (monthData.status !== 'published' || !focusDate) return [];
     return visibleEmployees
       .filter((employee) => {
-        const entry = dataService.getVisibleEntryForEmployee(selectedAdminId, monthKey, employee.id, dayFilter);
+        const entry = dataService.getVisibleEntryForEmployee(selectedAdminId, monthKey, employee.id, focusDate);
         return entry?.kind === 'SPECIAL';
       })
       .map((employee) => employee.full_name);
-  }, [dates, dayFilter, monthData.status, monthKey, selectedAdminId, visibleEmployees]);
+  }, [focusDate, monthData.status, monthKey, selectedAdminId, visibleEmployees]);
 
   const resetFilters = (): void => {
     setNameFilter('');
     setObjectFilterIds([]);
-    setDayFilter('');
+    setPeriodMode('MONTH');
+    setPeriodDate(dates[0] ?? '');
+    setCustomFromDate(dates[0] ?? '');
+    setCustomToDate(dates[dates.length - 1] ?? '');
   };
 
   return (
@@ -111,6 +150,39 @@ export const MePage = (): JSX.Element => {
             </option>
           ))}
         </select>
+        <select value={periodMode} onChange={(event) => setPeriodMode(event.target.value as PeriodMode)}>
+          <option value="MONTH">Период: месяц</option>
+          <option value="WEEK">Период: неделя</option>
+          <option value="DAY">Период: день</option>
+          <option value="CUSTOM">Период: произвольный</option>
+        </select>
+        {(periodMode === 'DAY' || periodMode === 'WEEK') && (
+          <input
+            type="date"
+            min={`2026-${String(month).padStart(2, '0')}-01`}
+            max={`2026-${String(month).padStart(2, '0')}-31`}
+            value={periodDate}
+            onChange={(event) => setPeriodDate(event.target.value)}
+          />
+        )}
+        {periodMode === 'CUSTOM' && (
+          <>
+            <input
+              type="date"
+              min={`2026-${String(month).padStart(2, '0')}-01`}
+              max={`2026-${String(month).padStart(2, '0')}-31`}
+              value={customFromDate}
+              onChange={(event) => setCustomFromDate(event.target.value)}
+            />
+            <input
+              type="date"
+              min={`2026-${String(month).padStart(2, '0')}-01`}
+              max={`2026-${String(month).padStart(2, '0')}-31`}
+              value={customToDate}
+              onChange={(event) => setCustomToDate(event.target.value)}
+            />
+          </>
+        )}
         <div className="multi-select-filter">
           <label htmlFor="object-filter">Объекты</label>
           <select
@@ -130,14 +202,6 @@ export const MePage = (): JSX.Element => {
             ))}
           </select>
         </div>
-        <input
-          type="date"
-          min={`2026-${String(month).padStart(2, '0')}-01`}
-          max={`2026-${String(month).padStart(2, '0')}-31`}
-          value={dayFilter}
-          onChange={(event) => setDayFilter(event.target.value)}
-          placeholder="Дата"
-        />
         <button type="button" onClick={resetFilters}>Сбросить фильтры</button>
         <button
           type="button"
@@ -156,7 +220,7 @@ export const MePage = (): JSX.Element => {
       </div>
 
 
-      {(nameFilter || objectFilterIds.length > 0 || dayFilter) && (
+      {(nameFilter || objectFilterIds.length > 0 || periodMode !== 'MONTH') && (
         <div className="filter-chips" aria-label="Активные фильтры">
           {nameFilter && <span className="filter-chip">Имя: {nameFilter}</span>}
           {objectFilterIds.length > 0 && (
@@ -167,7 +231,7 @@ export const MePage = (): JSX.Element => {
                 .join(', ')}
             </span>
           )}
-          {dayFilter && <span className="filter-chip">Дата: {dayFilter}</span>}
+          {periodMode !== 'MONTH' && <span className="filter-chip">Период: {periodMode === 'DAY' ? 'День' : periodMode === 'WEEK' ? 'Неделя' : 'Произвольный'}</span>}
         </div>
       )}
 
@@ -189,7 +253,7 @@ export const MePage = (): JSX.Element => {
             employees={visibleEmployees}
             objects={objectsByAdmin}
             readOnly
-            selectedDate={dayFilter || null}
+            visibleDates={periodDates}
             getCellValue={(employeeId, date) => {
               const entry = dataService.getVisibleEntryForEmployee(selectedAdminId, monthKey, employeeId, date);
               if (!entry) return { type: 'SPECIAL', value: 'OFF' } as const;
@@ -214,9 +278,9 @@ export const MePage = (): JSX.Element => {
 
             <div className="summary-card">
               <h3>Кто выходной в выбранную дату</h3>
-              {!dayFilter && <p>Выберите дату в фильтре выше.</p>}
-              {dayFilter && offMechanicsOnDate.length === 0 && <p>На {dayFilter} выходных нет.</p>}
-              {dayFilter && offMechanicsOnDate.length > 0 && (
+              {periodMode !== 'DAY' && <p>Для этой карточки выберите режим периода «День».</p>}
+              {periodMode === 'DAY' && offMechanicsOnDate.length === 0 && <p>На {focusDate} выходных нет.</p>}
+              {periodMode === 'DAY' && offMechanicsOnDate.length > 0 && (
                 <ul>
                   {offMechanicsOnDate.map((name) => (
                     <li key={name}>{name}</li>
