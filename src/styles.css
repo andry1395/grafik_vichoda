@@ -67,6 +67,28 @@ p {
   align-items: center;
 }
 
+
+.multi-select-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 280px;
+}
+
+.multi-select-filter label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.multi-select {
+  min-height: 38px;
+  max-height: 38px;
+  min-width: 220px;
+  padding: 8px 10px;
+}
+
 input,
 select,
 button {
@@ -180,6 +202,10 @@ button:active {
 .schedule-table td.single-employee-object-day {
   background: #fff7cc;
   box-shadow: inset 0 0 0 1px #f59e0b;
+}
+
+.schedule-table td.employee-off-day {
+  background: #e6f5c9;
 }
 
 .schedule-table td.trainee-only-shift-day {
@@ -517,4 +543,3 @@ button:active {
   text-align: center;
   font-weight: 700;
 }
-
