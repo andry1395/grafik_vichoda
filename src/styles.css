@@ -182,6 +182,10 @@ button:active {
   box-shadow: inset 0 0 0 1px #f59e0b;
 }
 
+.schedule-table td.employee-off-day {
+  background: #e6f5c9;
+}
+
 .schedule-table td.trainee-only-shift-day {
   background: #ffe4e6;
   box-shadow: inset 0 0 0 1px #e11d48;
@@ -517,4 +521,3 @@ button:active {
   text-align: center;
   font-weight: 700;
 }
-
