@@ -18,7 +18,7 @@ export const AdminMonthPage = (): JSX.Element => {
   const [notice, setNotice] = useState<string>('');
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [dayFilter, setDayFilter] = useState('');
-  const [objectFilter, setObjectFilter] = useState('ALL');
+  const [objectFilterIds, setObjectFilterIds] = useState<string[]>([]);
   const [draftEntries, setDraftEntries] = useState<Record<string, ScheduleEntry>>({});
 
   const getEntryKey = (employeeId: string, date: string): string => `${employeeId}_${date}`;
@@ -67,15 +67,15 @@ export const AdminMonthPage = (): JSX.Element => {
   );
 
   const employees = useMemo(() => {
-    if (objectFilter === 'ALL') return employeesByName;
+    if (objectFilterIds.length === 0) return employeesByName;
     const datesToInspect = dayFilter && dates.includes(dayFilter) ? [dayFilter] : dates;
     return employeesByName.filter((employee) =>
       datesToInspect.some((date) => {
         const cell = getDraftCellValue(employee.id, date);
-        return cell.type === 'OBJECT' && cell.value === objectFilter;
+        return cell.type === 'OBJECT' && objectFilterIds.includes(cell.value);
       })
     );
-  }, [dates, dayFilter, employeesByName, objectFilter, draftEntries]);
+  }, [dates, dayFilter, employeesByName, objectFilterIds, draftEntries]);
 
   const coverageIssues = useMemo(
     () =>
@@ -113,7 +113,7 @@ export const AdminMonthPage = (): JSX.Element => {
 
   const resetFilters = (): void => {
     setEmployeeSearch('');
-    setObjectFilter('ALL');
+    setObjectFilterIds([]);
     setDayFilter('');
   };
 
@@ -147,14 +147,25 @@ export const AdminMonthPage = (): JSX.Element => {
           onChange={(event) => setEmployeeSearch(event.target.value)}
           placeholder="Поиск сотрудника по имени"
         />
-        <select value={objectFilter} onChange={(event) => setObjectFilter(event.target.value)}>
-          <option value="ALL">Все объекты</option>
-          {objects.map((objectItem) => (
-            <option key={objectItem.id} value={objectItem.id}>
-              {objectItem.short_ru || objectItem.name_ru}
-            </option>
-          ))}
-        </select>
+        <div className="multi-select-filter">
+          <label htmlFor="object-filter">Объекты</label>
+          <select
+            id="object-filter"
+            className="multi-select"
+            multiple
+            size={1}
+            value={objectFilterIds}
+            onChange={(event) =>
+              setObjectFilterIds(Array.from(event.target.selectedOptions, (option) => option.value))
+            }
+          >
+            {objects.map((objectItem) => (
+              <option key={objectItem.id} value={objectItem.id}>
+                {objectItem.short_ru || objectItem.name_ru}
+              </option>
+            ))}
+          </select>
+        </div>
         <input
           type="date"
           min={`2026-${String(month).padStart(2, '0')}-01`}
@@ -236,12 +247,15 @@ export const AdminMonthPage = (): JSX.Element => {
         </button>
       </div>
 
-      {(employeeSearch || objectFilter !== 'ALL' || dayFilter) && (
+      {(employeeSearch || objectFilterIds.length > 0 || dayFilter) && (
         <div className="filter-chips" aria-label="Активные фильтры">
           {employeeSearch && <span className="filter-chip">Имя: {employeeSearch}</span>}
-          {objectFilter !== 'ALL' && (
+          {objectFilterIds.length > 0 && (
             <span className="filter-chip">
-              Объект: {objects.find((item) => item.id === objectFilter)?.short_ru || objects.find((item) => item.id === objectFilter)?.name_ru || '—'}
+              Объекты: {objectFilterIds
+                .map((id) => objects.find((item) => item.id === id)?.short_ru || objects.find((item) => item.id === id)?.name_ru)
+                .filter(Boolean)
+                .join(', ')}
             </span>
           )}
           {dayFilter && <span className="filter-chip">Дата: {dayFilter}</span>}
