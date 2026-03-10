@@ -33,6 +33,7 @@ interface ScheduleTableProps {
   objects: WorkObject[];
   readOnly?: boolean;
   selectedDate?: string | null;
+  visibleDates?: string[] | null;
   getCellValue: (employeeId: string, date: string) => { type: 'OBJECT'; value: string } | { type: 'SPECIAL'; value: SpecialValue };
   setCellValue?: (employeeId: string, date: string, value: { type: 'OBJECT'; value: string } | { type: 'SPECIAL'; value: SpecialValue }) => void;
   clearCellValue?: (employeeId: string, date: string) => void;
@@ -45,6 +46,7 @@ export const ScheduleTable = ({
   objects,
   readOnly = false,
   selectedDate = null,
+  visibleDates = null,
   getCellValue,
   setCellValue,
   clearCellValue
@@ -64,9 +66,14 @@ export const ScheduleTable = ({
   );
 
   const dates = useMemo(() => {
+    if (visibleDates && visibleDates.length > 0) {
+      const allowed = new Set(allDates);
+      const filtered = visibleDates.filter((date) => allowed.has(date));
+      if (filtered.length > 0) return filtered;
+    }
     if (!selectedDate) return allDates;
     return allDates.includes(selectedDate) ? [selectedDate] : allDates;
-  }, [allDates, selectedDate]);
+  }, [allDates, selectedDate, visibleDates]);
 
 
   const objectAssignmentsByDate = useMemo(() => {
@@ -276,6 +283,7 @@ export const ScheduleTable = ({
                   const value = getCellValue(employee.id, date);
                   const objectName = value.type === 'OBJECT' ? objects.find((item) => item.id === value.value)?.short_ru ?? '—' : '';
                   const display = value.type === 'OBJECT' ? objectName : SPECIAL_LABELS[value.value];
+                  const isEmployeeOffDay = value.type === 'SPECIAL' && value.value === 'OFF';
                   const assignment = value.type === 'OBJECT' ? objectAssignmentsByDate[date]?.[value.value] : undefined;
                   const isSingleEmployeeOnObject = value.type === 'OBJECT' && (assignment?.total ?? 0) === 1;
                   const isTraineeOnlyShift = value.type === 'OBJECT' && (assignment?.total ?? 0) > 0 && (assignment?.mechanics ?? 0) === 0;
@@ -285,6 +293,7 @@ export const ScheduleTable = ({
                     <td
                       key={date}
                       className={[
+                        isEmployeeOffDay ? 'employee-off-day' : '',
                         isSingleEmployeeOnObject ? 'single-employee-object-day' : '',
                         isTraineeOnlyShift ? 'trainee-only-shift-day' : '',
                         isTooManyMechanicsShift ? 'too-many-mechanics-shift-day' : ''

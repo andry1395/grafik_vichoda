@@ -27,8 +27,8 @@ export interface SyncState {
 const defaultData: AppData = {
   admins: [{ id: SUPER_ADMIN_ID, name: 'Епиванов А В', password: 'admin2026', is_super: true }],
   employees: [
-    { id: createId(), admin_id: SUPER_ADMIN_ID, full_name: 'Иванов Иван', active: true, token: createToken(), role: DEFAULT_EMPLOYEE_ROLE },
-    { id: createId(), admin_id: SUPER_ADMIN_ID, full_name: 'Петров Петр', active: true, token: createToken(), role: DEFAULT_EMPLOYEE_ROLE }
+    { id: createId(), admin_id: SUPER_ADMIN_ID, full_name: 'Иванов Иван', active: true, token: createToken(), role: DEFAULT_EMPLOYEE_ROLE, primary_object_id: null },
+    { id: createId(), admin_id: SUPER_ADMIN_ID, full_name: 'Петров Петр', active: true, token: createToken(), role: DEFAULT_EMPLOYEE_ROLE, primary_object_id: null }
   ],
   objects: [
     { id: createId(), admin_id: SUPER_ADMIN_ID, name_ru: 'Объект Север', short_ru: 'Север', active: true },
@@ -54,7 +54,7 @@ const ensureDataShape = (input: unknown): AppData => {
   return {
     admins: normalizedAdmins,
     employees: Array.isArray(maybe.employees)
-      ? maybe.employees.map((employee) => ({ ...employee, admin_id: employee.admin_id ?? SUPER_ADMIN_ID, role: employee.role ?? DEFAULT_EMPLOYEE_ROLE }))
+      ? maybe.employees.map((employee) => ({ ...employee, admin_id: employee.admin_id ?? SUPER_ADMIN_ID, role: employee.role ?? DEFAULT_EMPLOYEE_ROLE, primary_object_id: employee.primary_object_id ?? null }))
       : [],
     objects: Array.isArray(maybe.objects)
       ? maybe.objects.map((objectItem) => ({ ...objectItem, admin_id: objectItem.admin_id ?? SUPER_ADMIN_ID }))
@@ -316,13 +316,13 @@ const upsertPlanMetrics = (
 };
 
 const upsertEmployee = (
-  payload: Omit<Employee, 'id' | 'token'> & { id?: string; token?: string; admin_id: string; role?: EmployeeRole }
+  payload: Omit<Employee, 'id' | 'token'> & { id?: string; token?: string; admin_id: string; role?: EmployeeRole; primary_object_id?: string | null }
 ): Employee => {
   const data = getFromStorage();
   if (payload.id) {
     data.employees = data.employees.map((employee) =>
       employee.id === payload.id
-        ? { ...employee, full_name: payload.full_name, active: payload.active, token: payload.token ?? employee.token, role: payload.role ?? employee.role ?? DEFAULT_EMPLOYEE_ROLE }
+        ? { ...employee, full_name: payload.full_name, active: payload.active, token: payload.token ?? employee.token, role: payload.role ?? employee.role ?? DEFAULT_EMPLOYEE_ROLE, primary_object_id: payload.primary_object_id ?? employee.primary_object_id ?? null }
         : employee
     );
     setToStorage(data);
@@ -335,7 +335,8 @@ const upsertEmployee = (
     full_name: payload.full_name,
     active: payload.active,
     token: createToken(),
-    role: payload.role ?? DEFAULT_EMPLOYEE_ROLE
+    role: payload.role ?? DEFAULT_EMPLOYEE_ROLE,
+    primary_object_id: payload.primary_object_id ?? null
   };
   data.employees.push(employee);
   setToStorage(data);
@@ -373,6 +374,9 @@ const removeEmployee = (employeeId: string): void => {
 const removeObject = (objectId: string): void => {
   const data = getFromStorage();
   data.objects = data.objects.filter((objectItem) => objectItem.id !== objectId);
+  data.employees = data.employees.map((employee) =>
+    employee.primary_object_id === objectId ? { ...employee, primary_object_id: null } : employee
+  );
   for (const month of Object.values(data.months)) {
     for (const [entryKey, entry] of Object.entries(month.entries)) {
       if (entry.kind === 'OBJECT' && entry.object_id === objectId) delete month.entries[entryKey];

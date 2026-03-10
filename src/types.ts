@@ -17,6 +17,7 @@ export interface Employee {
   active: boolean;
   token: string;
   role: EmployeeRole;
+  primary_object_id?: string | null;
 }
 
 export interface WorkObject {
