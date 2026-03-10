@@ -111,20 +111,26 @@ export const MePage = (): JSX.Element => {
             </option>
           ))}
         </select>
-        <select
-          multiple
-          value={objectFilterIds}
-          onChange={(event) =>
-            setObjectFilterIds(Array.from(event.target.selectedOptions, (option) => option.value))
-          }
-          title="Можно выбрать несколько объектов (Ctrl/Cmd + клик)"
-        >
-          {objectsByAdmin.map((objectItem) => (
-            <option key={objectItem.id} value={objectItem.id}>
-              {objectItem.short_ru || objectItem.name_ru}
-            </option>
-          ))}
-        </select>
+        <div className="multi-select-filter">
+          <label htmlFor="object-filter">Объекты</label>
+          <select
+            id="object-filter"
+            className="multi-select"
+            multiple
+            size={1}
+            value={objectFilterIds}
+            onChange={(event) =>
+              setObjectFilterIds(Array.from(event.target.selectedOptions, (option) => option.value))
+            }
+          >
+            {objectsByAdmin.map((objectItem) => (
+              <option key={objectItem.id} value={objectItem.id}>
+                {objectItem.short_ru || objectItem.name_ru}
+              </option>
+            ))}
+          </select>
+          <span className="multi-select-hint">Выберите один или несколько объектов (Ctrl/Cmd + клик).</span>
+        </div>
         <input
           type="date"
           min={`2026-${String(month).padStart(2, '0')}-01`}
