@@ -129,7 +129,6 @@ export const MePage = (): JSX.Element => {
               </option>
             ))}
           </select>
-          <span className="multi-select-hint">Выберите один или несколько объектов (Ctrl/Cmd + клик).</span>
         </div>
         <input
           type="date"

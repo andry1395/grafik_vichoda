@@ -89,12 +89,6 @@ p {
   padding: 8px 10px;
 }
 
-.multi-select-hint {
-  font-size: 12px;
-  color: #64748b;
-  white-space: nowrap;
-}
-
 input,
 select,
 button {
