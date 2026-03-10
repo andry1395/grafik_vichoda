@@ -276,6 +276,7 @@ export const ScheduleTable = ({
                   const value = getCellValue(employee.id, date);
                   const objectName = value.type === 'OBJECT' ? objects.find((item) => item.id === value.value)?.short_ru ?? '—' : '';
                   const display = value.type === 'OBJECT' ? objectName : SPECIAL_LABELS[value.value];
+                  const isEmployeeOffDay = value.type === 'SPECIAL' && value.value === 'OFF';
                   const assignment = value.type === 'OBJECT' ? objectAssignmentsByDate[date]?.[value.value] : undefined;
                   const isSingleEmployeeOnObject = value.type === 'OBJECT' && (assignment?.total ?? 0) === 1;
                   const isTraineeOnlyShift = value.type === 'OBJECT' && (assignment?.total ?? 0) > 0 && (assignment?.mechanics ?? 0) === 0;
@@ -285,6 +286,7 @@ export const ScheduleTable = ({
                     <td
                       key={date}
                       className={[
+                        isEmployeeOffDay ? 'employee-off-day' : '',
                         isSingleEmployeeOnObject ? 'single-employee-object-day' : '',
                         isTraineeOnlyShift ? 'trainee-only-shift-day' : '',
                         isTooManyMechanicsShift ? 'too-many-mechanics-shift-day' : ''
