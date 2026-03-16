@@ -23,3 +23,21 @@ export const getWeekdayIndexMondayFirst = (year: number, month: number, day: num
   const jsDay = new Date(year, month - 1, day).getDay();
   return jsDay === 0 ? 6 : jsDay - 1;
 };
+
+export const getWeekDatesMondayFirst = (dates: string[], anchorDate: string): string[] => {
+  if (dates.length === 0 || !dates.includes(anchorDate)) return dates;
+
+  const anchor = new Date(`${anchorDate}T00:00:00`);
+  const mondayOffset = getWeekdayIndexMondayFirst(anchor.getFullYear(), anchor.getMonth() + 1, anchor.getDate());
+
+  const weekStart = new Date(anchor);
+  weekStart.setDate(anchor.getDate() - mondayOffset);
+
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  const weekStartKey = buildDateKey(weekStart.getFullYear(), weekStart.getMonth() + 1, weekStart.getDate());
+  const weekEndKey = buildDateKey(weekEnd.getFullYear(), weekEnd.getMonth() + 1, weekEnd.getDate());
+
+  return dates.filter((date) => date >= weekStartKey && date <= weekEndKey);
+};

@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { ScheduleTable } from '../components/ScheduleTable';
 import { dataService } from '../services/dataService';
 import type { ScheduleEntry, SpecialValue } from '../types';
-import { buildDateKey, daysInMonth, formatDateDmy } from '../utils/date';
+import { buildDateKey, daysInMonth, formatDateDmy, getWeekDatesMondayFirst } from '../utils/date';
 import { exportMonthToXlsx } from '../utils/export';
 import { coverageIssueToText, getCoverageIssues } from '../utils/coverage';
 import { getSelectedAdminId } from '../utils/adminAuth';
@@ -80,10 +80,7 @@ export const AdminMonthPage = (): JSX.Element => {
     }
 
     if (periodMode === 'WEEK') {
-      const anchorIndex = dates.indexOf(periodDate);
-      if (anchorIndex < 0) return dates;
-      const weekStart = Math.floor(anchorIndex / 7) * 7;
-      return dates.slice(weekStart, weekStart + 7);
+      return getWeekDatesMondayFirst(dates, periodDate);
     }
 
     const fromIndex = dates.indexOf(customFromDate);
