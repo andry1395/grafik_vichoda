@@ -5,7 +5,7 @@ import { MONTHS_2026 } from '../utils/constants';
 import { coverageIssueToText, getCoverageIssues } from '../utils/coverage';
 import { exportMonthToXlsx } from '../utils/export';
 import { getSelectedAdminId } from '../utils/adminAuth';
-import { buildDateKey, daysInMonth } from '../utils/date';
+import { buildDateKey, daysInMonth, getWeekDatesMondayFirst } from '../utils/date';
 
 const currentMonthNumber = (): number => {
   const current = new Date().getMonth() + 1;
@@ -51,10 +51,7 @@ export const MePage = (): JSX.Element => {
     }
 
     if (periodMode === 'WEEK') {
-      const anchorIndex = dates.indexOf(periodDate);
-      if (anchorIndex < 0) return dates;
-      const weekStart = Math.floor(anchorIndex / 7) * 7;
-      return dates.slice(weekStart, weekStart + 7);
+      return getWeekDatesMondayFirst(dates, periodDate);
     }
 
     const fromIndex = dates.indexOf(customFromDate);
