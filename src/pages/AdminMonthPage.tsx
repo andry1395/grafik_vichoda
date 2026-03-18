@@ -5,7 +5,7 @@ import { dataService } from '../services/dataService';
 import type { ScheduleEntry, SpecialValue } from '../types';
 import { buildDateKey, daysInMonth, formatDateDmy, getWeekDatesMondayFirst } from '../utils/date';
 import { exportMonthToXlsx } from '../utils/export';
-import { coverageIssueToText, getCoverageIssues } from '../utils/coverage';
+import { coverageObjectStatusToText, getCoverageIssues, getCoverageStatusByObject } from '../utils/coverage';
 import { getSelectedAdminId } from '../utils/adminAuth';
 import { doesVacationIntersectMonth } from '../utils/vacation';
 
@@ -119,6 +119,11 @@ export const AdminMonthPage = (): JSX.Element => {
         getCellValue: (employeeId, date) => getDraftCellValue(employeeId, date)
       }),
     [activeEmployees, month, objects, draftEntries]
+  );
+
+  const coverageStatusByObject = useMemo(
+    () => getCoverageStatusByObject(objects, coverageIssues),
+    [coverageIssues, objects],
   );
 
   const workDaysByMechanic = useMemo(
@@ -388,15 +393,19 @@ export const AdminMonthPage = (): JSX.Element => {
         </div>
       </div>
 
-      {coverageIssues.length > 0 && (
-        <div className="notice notice-error">
+      {coverageStatusByObject.length > 0 && (
+        <div className={`notice coverage-status ${coverageIssues.length > 0 ? 'notice-error' : ''}`.trim()}>
           <strong>Проверка заполнения объектов:</strong>
-          <ul>
-            {coverageIssues.slice(0, 8).map((issue) => (
-              <li key={issue.date}>{coverageIssueToText(issue)}</li>
+          <div className="coverage-status-list">
+            {coverageStatusByObject.map((status) => (
+              <div
+                key={status.object.id}
+                className={`coverage-status-item ${status.missingDates.length > 0 ? 'coverage-status-item-error' : 'coverage-status-item-ok'}`}
+              >
+                {coverageObjectStatusToText(status)}
+              </div>
             ))}
-          </ul>
-          {coverageIssues.length > 8 && <div>И еще {coverageIssues.length - 8} дн.</div>}
+          </div>
         </div>
       )}
     </section>
