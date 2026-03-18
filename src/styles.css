@@ -290,6 +290,34 @@ button:active {
   color: var(--danger-text);
 }
 
+.coverage-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.coverage-status-item {
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+
+.coverage-status-item-ok {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: #86efac;
+  color: var(--ok-text);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.1), 0 0 18px rgba(34, 197, 94, 0.14);
+}
+
+.coverage-status-item-error {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: #fca5a5;
+  color: var(--danger-text);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.1), 0 0 18px rgba(239, 68, 68, 0.14);
+}
+
 
 .sticky-actions {
   position: sticky;

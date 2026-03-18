@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ScheduleTable } from '../components/ScheduleTable';
 import { dataService } from '../services/dataService';
 import { MONTHS_2026 } from '../utils/constants';
-import { coverageIssueToText, getCoverageIssues } from '../utils/coverage';
+import { coverageObjectStatusToText, getCoverageIssues, getCoverageStatusByObject } from '../utils/coverage';
 import { exportMonthToXlsx } from '../utils/export';
 import { getSelectedAdminId } from '../utils/adminAuth';
 import { buildDateKey, daysInMonth, getWeekDatesMondayFirst } from '../utils/date';
@@ -90,6 +90,11 @@ export const MePage = (): JSX.Element => {
         getCellValue: (employeeId, date) => dataService.getCellValue(selectedAdminId, monthKey, employeeId, date)
       }),
     [employeesByAdmin, month, monthKey, objectsByAdmin, selectedAdminId]
+  );
+
+  const coverageStatusByObject = useMemo(
+    () => getCoverageStatusByObject(objectsByAdmin, coverageIssues),
+    [objectsByAdmin, coverageIssues],
   );
 
   const workDaysByMechanic = useMemo(() => {
@@ -289,15 +294,19 @@ export const MePage = (): JSX.Element => {
         </>
       )}
 
-      {coverageIssues.length > 0 && (
-        <div className="notice notice-error">
+      {coverageStatusByObject.length > 0 && (
+        <div className={`notice coverage-status ${coverageIssues.length > 0 ? 'notice-error' : ''}`.trim()}>
           <strong>Проверка заполнения объектов:</strong>
-          <ul>
-            {coverageIssues.slice(0, 8).map((issue) => (
-              <li key={issue.date}>{coverageIssueToText(issue)}</li>
+          <div className="coverage-status-list">
+            {coverageStatusByObject.map((status) => (
+              <div
+                key={status.object.id}
+                className={`coverage-status-item ${status.missingDates.length > 0 ? 'coverage-status-item-error' : 'coverage-status-item-ok'}`}
+              >
+                {coverageObjectStatusToText(status)}
+              </div>
             ))}
-          </ul>
-          {coverageIssues.length > 8 && <div>И еще {coverageIssues.length - 8} дн.</div>}
+          </div>
         </div>
       )}
     </section>
