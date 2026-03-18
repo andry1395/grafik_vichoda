@@ -16,7 +16,7 @@ type PeriodMode = 'MONTH' | 'DAY' | 'WEEK' | 'CUSTOM';
 
 export const MePage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
-  const [nameFilter, setNameFilter] = useState('');
+  const [employeeFilterIds, setEmployeeFilterIds] = useState<string[]>([]);
   const [month, setMonth] = useState(currentMonthNumber());
   const [periodMode, setPeriodMode] = useState<PeriodMode>('MONTH');
   const [periodDate, setPeriodDate] = useState('');
@@ -61,35 +61,40 @@ export const MePage = (): JSX.Element => {
     return dates.slice(start, end + 1);
   }, [customFromDate, customToDate, dates, periodDate, periodMode]);
 
-  const visibleEmployeesByName = useMemo(() => {
-    const normalized = nameFilter.trim().toLocaleLowerCase('ru-RU');
-    const active = employeesByAdmin.filter((employee) => employee.active);
-    if (!normalized) return active;
-    return active.filter((employee) => employee.full_name.toLocaleLowerCase('ru-RU').includes(normalized));
-  }, [employeesByAdmin, nameFilter]);
+  const activeEmployees = useMemo(() => employeesByAdmin.filter((employee) => employee.active), [employeesByAdmin]);
+
+  const visibleEmployeesByFilter = useMemo(() => {
+    if (employeeFilterIds.length === 0) return activeEmployees;
+    return activeEmployees.filter((employee) => employeeFilterIds.includes(employee.id));
+  }, [activeEmployees, employeeFilterIds]);
 
   const visibleEmployees = useMemo(() => {
-    if (objectFilterIds.length === 0) return visibleEmployeesByName;
+    if (objectFilterIds.length === 0) return visibleEmployeesByFilter;
 
-    return visibleEmployeesByName.filter((employee) =>
+    return visibleEmployeesByFilter.filter((employee) =>
       periodDates.some((date) => {
         const entry = dataService.getVisibleEntryForEmployee(selectedAdminId, monthKey, employee.id, date);
         if (entry?.kind !== 'OBJECT' || !entry.object_id) return false;
         return objectFilterIds.includes(entry.object_id);
       })
     );
-  }, [monthKey, objectFilterIds, periodDates, selectedAdminId, visibleEmployeesByName]);
+  }, [monthKey, objectFilterIds, periodDates, selectedAdminId, visibleEmployeesByFilter]);
 
   const coverageIssues = useMemo(
     () =>
       getCoverageIssues({
         year: 2026,
         month,
-        employees: employeesByAdmin.filter((employee) => employee.active),
+        employees: activeEmployees,
         objects: objectsByAdmin,
         getCellValue: (employeeId, date) => dataService.getCellValue(selectedAdminId, monthKey, employeeId, date)
       }),
-    [employeesByAdmin, month, monthKey, objectsByAdmin, selectedAdminId]
+    [activeEmployees, month, monthKey, objectsByAdmin, selectedAdminId]
+  );
+
+  const coverageStatusByObject = useMemo(
+    () => getCoverageStatusByObject(objectsByAdmin, coverageIssues),
+    [objectsByAdmin, coverageIssues],
   );
 
   const coverageStatusByObject = useMemo(
@@ -126,7 +131,7 @@ export const MePage = (): JSX.Element => {
   }, [focusDate, monthData.status, monthKey, selectedAdminId, visibleEmployees]);
 
   const resetFilters = (): void => {
-    setNameFilter('');
+    setEmployeeFilterIds([]);
     setObjectFilterIds([]);
     setPeriodMode('MONTH');
     setPeriodDate(dates[0] ?? '');
@@ -140,11 +145,25 @@ export const MePage = (): JSX.Element => {
       <p>Здесь можно просматривать график свой и коллег. Редактирование недоступно.</p>
 
       <div className="toolbar-row">
-        <input
-          value={nameFilter}
-          onChange={(event) => setNameFilter(event.target.value)}
-          placeholder="Поиск сотрудника (можно часть ФИО)"
-        />
+        <div className="multi-select-filter">
+          <label htmlFor="employee-filter">Сотрудники</label>
+          <select
+            id="employee-filter"
+            className="multi-select"
+            multiple
+            size={1}
+            value={employeeFilterIds}
+            onChange={(event) =>
+              setEmployeeFilterIds(Array.from(event.target.selectedOptions, (option) => option.value))
+            }
+          >
+            {activeEmployees.map((employee) => (
+              <option key={employee.id} value={employee.id}>
+                {employee.full_name}
+              </option>
+            ))}
+          </select>
+        </div>
         <select value={month} onChange={(event) => setMonth(Number(event.target.value))}>
           {MONTHS_2026.map((value) => (
             <option key={value} value={value}>
@@ -222,9 +241,16 @@ export const MePage = (): JSX.Element => {
       </div>
 
 
-      {(nameFilter || objectFilterIds.length > 0 || periodMode !== 'MONTH') && (
+      {(employeeFilterIds.length > 0 || objectFilterIds.length > 0 || periodMode !== 'MONTH') && (
         <div className="filter-chips" aria-label="Активные фильтры">
-          {nameFilter && <span className="filter-chip">Имя: {nameFilter}</span>}
+          {employeeFilterIds.length > 0 && (
+            <span className="filter-chip">
+              Сотрудники: {employeeFilterIds
+                .map((id) => activeEmployees.find((employee) => employee.id === id)?.full_name)
+                .filter(Boolean)
+                .join(', ')}
+            </span>
+          )}
           {objectFilterIds.length > 0 && (
             <span className="filter-chip">
               Объекты: {objectFilterIds

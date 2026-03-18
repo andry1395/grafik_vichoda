@@ -18,7 +18,7 @@ export const AdminMonthPage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
   const [tick, setTick] = useState(0);
   const [notice, setNotice] = useState<string>('');
-  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [employeeFilterIds, setEmployeeFilterIds] = useState<string[]>([]);
   const [periodMode, setPeriodMode] = useState<PeriodMode>('MONTH');
   const [periodDate, setPeriodDate] = useState('');
   const [customFromDate, setCustomFromDate] = useState('');
@@ -90,24 +90,21 @@ export const AdminMonthPage = (): JSX.Element => {
     return dates.slice(start, end + 1);
   }, [customFromDate, customToDate, dates, periodDate, periodMode]);
 
-  const employeesByName = useMemo(
-    () =>
-      activeEmployees.filter((employee) =>
-        employee.full_name.toLocaleLowerCase('ru-RU').includes(employeeSearch.trim().toLocaleLowerCase('ru-RU'))
-      ),
-    [activeEmployees, employeeSearch]
-  );
+  const employeesByFilter = useMemo(() => {
+    if (employeeFilterIds.length === 0) return activeEmployees;
+    return activeEmployees.filter((employee) => employeeFilterIds.includes(employee.id));
+  }, [activeEmployees, employeeFilterIds]);
 
   const employees = useMemo(() => {
-    if (objectFilterIds.length === 0) return employeesByName;
+    if (objectFilterIds.length === 0) return employeesByFilter;
 
-    return employeesByName.filter((employee) =>
+    return employeesByFilter.filter((employee) =>
       periodDates.some((date) => {
         const cell = getDraftCellValue(employee.id, date);
         return cell.type === 'OBJECT' && objectFilterIds.includes(cell.value);
       })
     );
-  }, [employeesByName, objectFilterIds, periodDates, draftEntries]);
+  }, [employeesByFilter, objectFilterIds, periodDates, draftEntries]);
 
   const coverageIssues = useMemo(
     () =>
@@ -151,7 +148,7 @@ export const AdminMonthPage = (): JSX.Element => {
   }, [employees, focusDate, draftEntries]);
 
   const resetFilters = (): void => {
-    setEmployeeSearch('');
+    setEmployeeFilterIds([]);
     setObjectFilterIds([]);
     setPeriodMode('MONTH');
     setPeriodDate(dates[0] ?? '');
@@ -184,11 +181,25 @@ export const AdminMonthPage = (): JSX.Element => {
       )}
 
       <div className="toolbar-row sticky-actions">
-        <input
-          value={employeeSearch}
-          onChange={(event) => setEmployeeSearch(event.target.value)}
-          placeholder="Поиск сотрудника по имени"
-        />
+        <div className="multi-select-filter">
+          <label htmlFor="employee-filter">Сотрудники</label>
+          <select
+            id="employee-filter"
+            className="multi-select"
+            multiple
+            size={1}
+            value={employeeFilterIds}
+            onChange={(event) =>
+              setEmployeeFilterIds(Array.from(event.target.selectedOptions, (option) => option.value))
+            }
+          >
+            {activeEmployees.map((employee) => (
+              <option key={employee.id} value={employee.id}>
+                {employee.full_name}
+              </option>
+            ))}
+          </select>
+        </div>
         <select value={periodMode} onChange={(event) => setPeriodMode(event.target.value as PeriodMode)}>
           <option value="MONTH">Период: месяц</option>
           <option value="WEEK">Период: неделя</option>
@@ -314,9 +325,16 @@ export const AdminMonthPage = (): JSX.Element => {
         </button>
       </div>
 
-      {(employeeSearch || objectFilterIds.length > 0 || periodMode !== 'MONTH') && (
+      {(employeeFilterIds.length > 0 || objectFilterIds.length > 0 || periodMode !== 'MONTH') && (
         <div className="filter-chips" aria-label="Активные фильтры">
-          {employeeSearch && <span className="filter-chip">Имя: {employeeSearch}</span>}
+          {employeeFilterIds.length > 0 && (
+            <span className="filter-chip">
+              Сотрудники: {employeeFilterIds
+                .map((id) => activeEmployees.find((employee) => employee.id === id)?.full_name)
+                .filter(Boolean)
+                .join(', ')}
+            </span>
+          )}
           {objectFilterIds.length > 0 && (
             <span className="filter-chip">
               Объекты: {objectFilterIds
