@@ -97,11 +97,6 @@ export const MePage = (): JSX.Element => {
     [objectsByAdmin, coverageIssues],
   );
 
-  const coverageStatusByObject = useMemo(
-    () => getCoverageStatusByObject(objectsByAdmin, coverageIssues),
-    [objectsByAdmin, coverageIssues],
-  );
-
   const workDaysByMechanic = useMemo(() => {
     if (monthData.status !== 'published') return [];
     return visibleEmployees.map((employee) => {
