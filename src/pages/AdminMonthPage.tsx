@@ -5,7 +5,7 @@ import { dataService } from '../services/dataService';
 import type { ScheduleEntry, SpecialValue } from '../types';
 import { buildDateKey, daysInMonth, formatDateDmy, getWeekDatesMondayFirst } from '../utils/date';
 import { exportMonthToXlsx } from '../utils/export';
-import { coverageIssueToText, getCoverageIssues } from '../utils/coverage';
+import { coverageObjectStatusToText, getCoverageIssues, getCoverageStatusByObject } from '../utils/coverage';
 import { getSelectedAdminId } from '../utils/adminAuth';
 import { doesVacationIntersectMonth } from '../utils/vacation';
 
@@ -18,7 +18,7 @@ export const AdminMonthPage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
   const [tick, setTick] = useState(0);
   const [notice, setNotice] = useState<string>('');
-  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [employeeFilterIds, setEmployeeFilterIds] = useState<string[]>([]);
   const [periodMode, setPeriodMode] = useState<PeriodMode>('MONTH');
   const [periodDate, setPeriodDate] = useState('');
   const [customFromDate, setCustomFromDate] = useState('');
@@ -90,24 +90,21 @@ export const AdminMonthPage = (): JSX.Element => {
     return dates.slice(start, end + 1);
   }, [customFromDate, customToDate, dates, periodDate, periodMode]);
 
-  const employeesByName = useMemo(
-    () =>
-      activeEmployees.filter((employee) =>
-        employee.full_name.toLocaleLowerCase('ru-RU').includes(employeeSearch.trim().toLocaleLowerCase('ru-RU'))
-      ),
-    [activeEmployees, employeeSearch]
-  );
+  const employeesByFilter = useMemo(() => {
+    if (employeeFilterIds.length === 0) return activeEmployees;
+    return activeEmployees.filter((employee) => employeeFilterIds.includes(employee.id));
+  }, [activeEmployees, employeeFilterIds]);
 
   const employees = useMemo(() => {
-    if (objectFilterIds.length === 0) return employeesByName;
+    if (objectFilterIds.length === 0) return employeesByFilter;
 
-    return employeesByName.filter((employee) =>
+    return employeesByFilter.filter((employee) =>
       periodDates.some((date) => {
         const cell = getDraftCellValue(employee.id, date);
         return cell.type === 'OBJECT' && objectFilterIds.includes(cell.value);
       })
     );
-  }, [employeesByName, objectFilterIds, periodDates, draftEntries]);
+  }, [employeesByFilter, objectFilterIds, periodDates, draftEntries]);
 
   const coverageIssues = useMemo(
     () =>
@@ -119,6 +116,11 @@ export const AdminMonthPage = (): JSX.Element => {
         getCellValue: (employeeId, date) => getDraftCellValue(employeeId, date)
       }),
     [activeEmployees, month, objects, draftEntries]
+  );
+
+  const coverageStatusByObject = useMemo(
+    () => getCoverageStatusByObject(objects, coverageIssues),
+    [coverageIssues, objects],
   );
 
   const workDaysByMechanic = useMemo(
@@ -146,7 +148,7 @@ export const AdminMonthPage = (): JSX.Element => {
   }, [employees, focusDate, draftEntries]);
 
   const resetFilters = (): void => {
-    setEmployeeSearch('');
+    setEmployeeFilterIds([]);
     setObjectFilterIds([]);
     setPeriodMode('MONTH');
     setPeriodDate(dates[0] ?? '');
@@ -179,11 +181,25 @@ export const AdminMonthPage = (): JSX.Element => {
       )}
 
       <div className="toolbar-row sticky-actions">
-        <input
-          value={employeeSearch}
-          onChange={(event) => setEmployeeSearch(event.target.value)}
-          placeholder="Поиск сотрудника по имени"
-        />
+        <div className="multi-select-filter">
+          <label htmlFor="employee-filter">Сотрудники</label>
+          <select
+            id="employee-filter"
+            className="multi-select"
+            multiple
+            size={1}
+            value={employeeFilterIds}
+            onChange={(event) =>
+              setEmployeeFilterIds(Array.from(event.target.selectedOptions, (option) => option.value))
+            }
+          >
+            {activeEmployees.map((employee) => (
+              <option key={employee.id} value={employee.id}>
+                {employee.full_name}
+              </option>
+            ))}
+          </select>
+        </div>
         <select value={periodMode} onChange={(event) => setPeriodMode(event.target.value as PeriodMode)}>
           <option value="MONTH">Период: месяц</option>
           <option value="WEEK">Период: неделя</option>
@@ -309,9 +325,16 @@ export const AdminMonthPage = (): JSX.Element => {
         </button>
       </div>
 
-      {(employeeSearch || objectFilterIds.length > 0 || periodMode !== 'MONTH') && (
+      {(employeeFilterIds.length > 0 || objectFilterIds.length > 0 || periodMode !== 'MONTH') && (
         <div className="filter-chips" aria-label="Активные фильтры">
-          {employeeSearch && <span className="filter-chip">Имя: {employeeSearch}</span>}
+          {employeeFilterIds.length > 0 && (
+            <span className="filter-chip">
+              Сотрудники: {employeeFilterIds
+                .map((id) => activeEmployees.find((employee) => employee.id === id)?.full_name)
+                .filter(Boolean)
+                .join(', ')}
+            </span>
+          )}
           {objectFilterIds.length > 0 && (
             <span className="filter-chip">
               Объекты: {objectFilterIds
@@ -388,15 +411,19 @@ export const AdminMonthPage = (): JSX.Element => {
         </div>
       </div>
 
-      {coverageIssues.length > 0 && (
-        <div className="notice notice-error">
+      {coverageStatusByObject.length > 0 && (
+        <div className={`notice coverage-status ${coverageIssues.length > 0 ? 'notice-error' : ''}`.trim()}>
           <strong>Проверка заполнения объектов:</strong>
-          <ul>
-            {coverageIssues.slice(0, 8).map((issue) => (
-              <li key={issue.date}>{coverageIssueToText(issue)}</li>
+          <div className="coverage-status-list">
+            {coverageStatusByObject.map((status) => (
+              <div
+                key={status.object.id}
+                className={`coverage-status-item ${status.missingDates.length > 0 ? 'coverage-status-item-error' : 'coverage-status-item-ok'}`}
+              >
+                {coverageObjectStatusToText(status)}
+              </div>
             ))}
-          </ul>
-          {coverageIssues.length > 8 && <div>И еще {coverageIssues.length - 8} дн.</div>}
+          </div>
         </div>
       )}
     </section>
