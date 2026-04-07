@@ -32,7 +32,7 @@ export const MePage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
   const [employeeFilterIds, setEmployeeFilterIds] = useState<string[]>([]);
   const [month, setMonth] = useState(currentMonthNumber());
-  const [periodMode, setPeriodMode] = useState<PeriodMode>('CUSTOM');
+  const [periodMode, setPeriodMode] = useState<PeriodMode>('WEEK');
   const [periodDate, setPeriodDate] = useState('');
   const [customFromDate, setCustomFromDate] = useState('');
   const [customToDate, setCustomToDate] = useState('');
