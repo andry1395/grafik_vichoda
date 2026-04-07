@@ -12,13 +12,27 @@ const currentMonthNumber = (): number => {
   return current >= 1 && current <= 12 ? current : 1;
 };
 
+const currentDateKeyInMonth = (month: number, dates: string[]): string => {
+  if (dates.length === 0) return '';
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentDay = now.getDate();
+
+  if (month === currentMonth) {
+    const todayDateKey = buildDateKey(2026, month, currentDay);
+    if (dates.includes(todayDateKey)) return todayDateKey;
+  }
+
+  return dates[0] ?? '';
+};
+
 type PeriodMode = 'MONTH' | 'DAY' | 'WEEK' | 'CUSTOM';
 
 export const MePage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
   const [employeeFilterIds, setEmployeeFilterIds] = useState<string[]>([]);
   const [month, setMonth] = useState(currentMonthNumber());
-  const [periodMode, setPeriodMode] = useState<PeriodMode>('MONTH');
+  const [periodMode, setPeriodMode] = useState<PeriodMode>('WEEK');
   const [periodDate, setPeriodDate] = useState('');
   const [customFromDate, setCustomFromDate] = useState('');
   const [customToDate, setCustomToDate] = useState('');
@@ -35,12 +49,12 @@ export const MePage = (): JSX.Element => {
   }, [month]);
 
   useEffect(() => {
-    const firstDate = dates[0] ?? '';
+    const firstDate = currentDateKeyInMonth(month, dates);
     const lastDate = dates[dates.length - 1] ?? '';
     setPeriodDate(firstDate);
     setCustomFromDate(firstDate);
     setCustomToDate(lastDate);
-  }, [dates]);
+  }, [dates, month]);
 
   const periodDates = useMemo(() => {
     if (dates.length === 0) return [] as string[];
