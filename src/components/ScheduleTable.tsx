@@ -79,7 +79,7 @@ export const ScheduleTable = ({
 
 
   const objectAssignmentsByDate = useMemo(() => {
-    const assignments: Record<string, Record<string, { total: number; mechanics: number; trainees: number }>> = {};
+    const assignments: Record<string, Record<string, { total: number; mechanics: number; trainees: number; administrators: number }>> = {};
 
     for (const date of dates) {
       assignments[date] = {};
@@ -87,10 +87,10 @@ export const ScheduleTable = ({
         const cell = getCellValue(employee.id, date);
         if (cell.type !== 'OBJECT' && cell.type !== 'ADMINISTRATOR') continue;
 
-        const current = assignments[date][cell.value] ?? { total: 0, mechanics: 0, trainees: 0 };
+        const current = assignments[date][cell.value] ?? { total: 0, mechanics: 0, trainees: 0, administrators: 0 };
         current.total += 1;
         if (cell.type === 'ADMINISTRATOR') {
-          // Administrator is shown separately and is not counted as a mechanic.
+          current.administrators += 1;
         } else if (employee.role === 'trainee') {
           current.trainees += 1;
         } else {
@@ -259,7 +259,7 @@ export const ScheduleTable = ({
           <span className="legend-dot legend-dot-trainee-only" /> В смене только стажер(ы)
         </span>
         <span className="legend-item">
-          <span className="legend-dot legend-dot-too-many-mechanics" /> В смене больше 2 механиков
+          <span className="legend-dot legend-dot-too-many-mechanics" /> 3 механика или 2 механика и админ
         </span>
       </div>
 
@@ -306,7 +306,10 @@ export const ScheduleTable = ({
                   const assignment = isObjectAssignment ? objectAssignmentsByDate[date]?.[value.value] : undefined;
                   const isSingleEmployeeOnObject = isObjectAssignment && (assignment?.total ?? 0) === 1;
                   const isTraineeOnlyShift = value.type === 'OBJECT' && (assignment?.total ?? 0) > 0 && (assignment?.mechanics ?? 0) === 0;
-                  const isTooManyMechanicsShift = value.type === 'OBJECT' && (assignment?.mechanics ?? 0) >= 3;
+                  const mechanicsCount = assignment?.mechanics ?? 0;
+                  const administratorsCount = assignment?.administrators ?? 0;
+                  const shouldHighlightMechanics = mechanicsCount >= 3 || (mechanicsCount >= 2 && administratorsCount >= 1);
+                  const isTooManyMechanicsShift = value.type === 'OBJECT' && shouldHighlightMechanics;
                   const administratorClass = value.type === 'ADMINISTRATOR' ? 'administrator-assignment' : '';
 
                   return (
@@ -325,7 +328,7 @@ export const ScheduleTable = ({
                         isTraineeOnlyShift
                           ? 'На объект в эту смену назначены только стажеры'
                           : isTooManyMechanicsShift
-                            ? 'На объект в эту смену назначены 3 и более механика'
+                            ? 'В смене 3 и более сотрудников, включая не менее 2 механиков'
                           : isSingleEmployeeOnObject
                             ? 'На объекте в эту смену только один сотрудник'
                             : undefined
