@@ -239,11 +239,6 @@ button:active {
   color: #166534;
 }
 
-.schedule-table td.administrator-assignment.too-many-mechanics-shift-day {
-  background: #dbeafe;
-  box-shadow: inset 0 0 0 1px #2563eb;
-}
-
 .checkbox-label {
   display: inline-flex;
   align-items: center;
