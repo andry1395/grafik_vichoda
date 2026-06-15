@@ -1,5 +1,5 @@
-import type { Employee, SpecialValue, WorkObject } from '../types';
-import { SPECIAL_LABELS, WEEKDAY_SHORT } from './constants';
+import type { CellValue, Employee, WorkObject } from '../types';
+import { getAdministratorLabel, SPECIAL_LABELS, WEEKDAY_SHORT } from './constants';
 import { buildDateKey, daysInMonth, formatDateDmy, getWeekdayIndexMondayFirst } from './date';
 
 interface ExportParams {
@@ -7,7 +7,7 @@ interface ExportParams {
   month: number;
   employees: Employee[];
   objects: WorkObject[];
-  getCellValue: (employeeId: string, date: string) => { type: 'OBJECT'; value: string } | { type: 'SPECIAL'; value: SpecialValue };
+  getCellValue: (employeeId: string, date: string) => CellValue;
 }
 
 interface VacationExportRow {
@@ -43,8 +43,9 @@ export const exportMonthToXlsx = ({ year, month, employees, objects, getCellValu
     for (let day = 1; day <= days; day += 1) {
       const date = buildDateKey(year, month, day);
       const value = getCellValue(employee.id, date);
-      if (value.type === 'OBJECT') {
-        row.push(objects.find((item) => item.id === value.value)?.short_ru ?? '');
+      if (value.type === 'OBJECT' || value.type === 'ADMINISTRATOR') {
+        const objectItem = objects.find((item) => item.id === value.value);
+        row.push(value.type === 'ADMINISTRATOR' && objectItem ? getAdministratorLabel(objectItem) : objectItem?.short_ru ?? '');
       } else {
         row.push(SPECIAL_LABELS[value.value]);
       }

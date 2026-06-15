@@ -1,4 +1,4 @@
-import type { SpecialValue } from '../types';
+import type { SpecialValue, WorkObject } from '../types';
 
 export const STORAGE_KEY = 'scheduleAppData';
 
@@ -19,3 +19,11 @@ export const SPECIAL_OPTIONS: Array<{ value: SpecialValue; label: string; descri
 ];
 
 export const MONTHS_2026 = Array.from({ length: 12 }, (_, idx) => idx + 1);
+
+export const isMnevnikiObject = (objectItem: Pick<WorkObject, 'name_ru' | 'short_ru'>): boolean =>
+  [objectItem.name_ru, objectItem.short_ru]
+    .map((value) => value.trim().toLocaleLowerCase('ru-RU'))
+    .includes('мневники');
+
+export const getAdministratorLabel = (objectItem: WorkObject): string =>
+  `${objectItem.short_ru || objectItem.name_ru} администратор`;

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { dataService } from '../services/dataService';
 import { getSelectedAdminId } from '../utils/adminAuth';
+import { isMnevnikiObject } from '../utils/constants';
 
 export const ObjectsPage = (): JSX.Element => {
   const selectedAdminId = getSelectedAdminId();
@@ -41,6 +42,7 @@ export const ObjectsPage = (): JSX.Element => {
             <th>Название</th>
             <th>Короткое</th>
             <th>Активность</th>
+            <th>Настройки</th>
             <th>Действие</th>
           </tr>
         </thead>
@@ -55,6 +57,27 @@ export const ObjectsPage = (): JSX.Element => {
                 </td>
                 <td>{objectItem.active ? 'Активен' : 'Неактивен'}</td>
                 <td>
+                  {isMnevnikiObject(objectItem) ? (
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={objectItem.has_administrator === true}
+                        onChange={(event) => {
+                          dataService.upsertObject({
+                            ...objectItem,
+                            has_administrator: event.target.checked
+                          });
+                          setTick((value) => value + 1);
+                          setNotice('Сохранено');
+                        }}
+                      />
+                      Есть администратор
+                    </label>
+                  ) : (
+                    '—'
+                  )}
+                </td>
+                <td>
                   <div className="toolbar-row">
                     {isEditing ? (
                       <>
@@ -67,7 +90,8 @@ export const ObjectsPage = (): JSX.Element => {
                               admin_id: selectedAdminId,
                               name_ru: editingName.trim(),
                               short_ru: editingShortName.trim(),
-                              active: objectItem.active
+                              active: objectItem.active,
+                              has_administrator: objectItem.has_administrator
                             });
                             setEditingId(null);
                             setTick((value) => value + 1);
@@ -101,7 +125,8 @@ export const ObjectsPage = (): JSX.Element => {
                           admin_id: selectedAdminId,
                           name_ru: objectItem.name_ru,
                           short_ru: objectItem.short_ru,
-                          active: !objectItem.active
+                          active: !objectItem.active,
+                          has_administrator: objectItem.has_administrator
                         });
                         if (editingId === objectItem.id) setEditingId(null);
                         setTick((value) => value + 1);
