@@ -306,7 +306,7 @@ export const ScheduleTable = ({
                   const assignment = isObjectAssignment ? objectAssignmentsByDate[date]?.[value.value] : undefined;
                   const isSingleEmployeeOnObject = isObjectAssignment && (assignment?.total ?? 0) === 1;
                   const isTraineeOnlyShift = value.type === 'OBJECT' && (assignment?.total ?? 0) > 0 && (assignment?.mechanics ?? 0) === 0;
-                  const isTooManyMechanicsShift = value.type === 'OBJECT' && (assignment?.mechanics ?? 0) > 2;
+                  const isTooManyMechanicsShift = isObjectAssignment && (assignment?.mechanics ?? 0) >= 3;
                   const administratorClass = value.type === 'ADMINISTRATOR' ? 'administrator-assignment' : '';
 
                   return (
