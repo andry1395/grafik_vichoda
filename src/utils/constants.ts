@@ -26,4 +26,4 @@ export const isMnevnikiObject = (objectItem: Pick<WorkObject, 'name_ru' | 'short
     .includes('мневники');
 
 export const getAdministratorLabel = (objectItem: WorkObject): string =>
-  `${objectItem.short_ru || objectItem.name_ru} администратор`;
+  `${objectItem.short_ru || objectItem.name_ru} админ`;

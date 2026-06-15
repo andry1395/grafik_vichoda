@@ -90,7 +90,7 @@ export const ScheduleTable = ({
         const current = assignments[date][cell.value] ?? { total: 0, mechanics: 0, trainees: 0 };
         current.total += 1;
         if (cell.type === 'ADMINISTRATOR') {
-          // Administrator covers the object, but is not counted as a mechanic in staffing warnings.
+          // Administrator is shown separately and is not counted as a mechanic.
         } else if (employee.role === 'trainee') {
           current.trainees += 1;
         } else {
@@ -306,7 +306,7 @@ export const ScheduleTable = ({
                   const assignment = isObjectAssignment ? objectAssignmentsByDate[date]?.[value.value] : undefined;
                   const isSingleEmployeeOnObject = isObjectAssignment && (assignment?.total ?? 0) === 1;
                   const isTraineeOnlyShift = value.type === 'OBJECT' && (assignment?.total ?? 0) > 0 && (assignment?.mechanics ?? 0) === 0;
-                  const isTooManyMechanicsShift = isObjectAssignment && (assignment?.mechanics ?? 0) >= 3;
+                  const isTooManyMechanicsShift = value.type === 'OBJECT' && (assignment?.mechanics ?? 0) >= 3;
                   const administratorClass = value.type === 'ADMINISTRATOR' ? 'administrator-assignment' : '';
 
                   return (
@@ -325,7 +325,7 @@ export const ScheduleTable = ({
                         isTraineeOnlyShift
                           ? 'На объект в эту смену назначены только стажеры'
                           : isTooManyMechanicsShift
-                            ? 'На объект в эту смену назначены более 2 механиков'
+                            ? 'На объект в эту смену назначены 3 и более механика'
                           : isSingleEmployeeOnObject
                             ? 'На объекте в эту смену только один сотрудник'
                             : undefined
