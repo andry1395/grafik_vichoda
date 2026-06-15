@@ -1,4 +1,4 @@
-import type { AdminUser, AppData, Employee, EmployeeRole, MonthData, PlanMetrics, PlanRatioDefaults, ScheduleEntry, SpecialValue, VacationRequest, WorkObject } from '../types';
+import type { AdminUser, AppData, CellValue, Employee, EmployeeRole, MonthData, PlanMetrics, PlanRatioDefaults, ScheduleEntry, VacationRequest, WorkObject } from '../types';
 import { firebaseConfig, isFirebaseConfigured } from './firebase';
 import { pullAppDataFromFirestore, pushAppDataToFirestore } from './firestoreRest';
 
@@ -41,7 +41,13 @@ const defaultData: AppData = {
 };
 
 const sanitizeEntry = (entry: ScheduleEntry): ScheduleEntry => {
-  if (entry.kind === 'OBJECT') return { kind: 'OBJECT', object_id: entry.object_id };
+  if (entry.kind === 'OBJECT') {
+    return {
+      kind: 'OBJECT',
+      object_id: entry.object_id,
+      ...(entry.object_role === 'ADMINISTRATOR' ? { object_role: 'ADMINISTRATOR' as const } : {})
+    };
+  }
   return { kind: 'SPECIAL', special: entry.special ?? 'OFF' };
 };
 
@@ -57,7 +63,11 @@ const ensureDataShape = (input: unknown): AppData => {
       ? maybe.employees.map((employee) => ({ ...employee, admin_id: employee.admin_id ?? SUPER_ADMIN_ID, role: employee.role ?? DEFAULT_EMPLOYEE_ROLE, primary_object_id: employee.primary_object_id ?? null }))
       : [],
     objects: Array.isArray(maybe.objects)
-      ? maybe.objects.map((objectItem) => ({ ...objectItem, admin_id: objectItem.admin_id ?? SUPER_ADMIN_ID }))
+      ? maybe.objects.map((objectItem) => ({
+          ...objectItem,
+          admin_id: objectItem.admin_id ?? SUPER_ADMIN_ID,
+          has_administrator: objectItem.has_administrator === true
+        }))
       : [],
     months: maybe.months && typeof maybe.months === 'object' ? maybe.months : {},
     plans: maybe.plans && typeof maybe.plans === 'object' ? maybe.plans : {},
@@ -347,7 +357,15 @@ const upsertObject = (payload: Omit<WorkObject, 'id'> & { id?: string; admin_id:
   const data = getFromStorage();
   if (payload.id) {
     data.objects = data.objects.map((objectItem) =>
-      objectItem.id === payload.id ? { ...objectItem, name_ru: payload.name_ru, short_ru: payload.short_ru, active: payload.active } : objectItem
+      objectItem.id === payload.id
+        ? {
+            ...objectItem,
+            name_ru: payload.name_ru,
+            short_ru: payload.short_ru,
+            active: payload.active,
+            has_administrator: payload.has_administrator === true
+          }
+        : objectItem
     );
     setToStorage(data);
     return data.objects.find((item) => item.id === payload.id)!;
@@ -460,7 +478,7 @@ const extendMonthFromPrevious = (adminId: string, monthKey: string, employeeIds:
 
   const entryToToken = (entry: ScheduleEntry | undefined): string => {
     if (!entry) return '__EMPTY__';
-    if (entry.kind === 'OBJECT') return `OBJECT:${entry.object_id ?? ''}`;
+    if (entry.kind === 'OBJECT') return `OBJECT:${entry.object_id ?? ''}:${entry.object_role ?? ''}`;
     return `SPECIAL:${entry.special ?? 'OFF'}`;
   };
 
@@ -516,11 +534,16 @@ const getCellValue = (
   monthKey: string,
   employeeId: string,
   date: string
-): { type: 'OBJECT'; value: string } | { type: 'SPECIAL'; value: SpecialValue } => {
+): CellValue => {
   const month = getMonth(adminId, monthKey);
   const entry = month.entries[getEntryKey(employeeId, date)];
   if (!entry) return { type: 'SPECIAL', value: 'OFF' };
-  if (entry.kind === 'OBJECT' && entry.object_id) return { type: 'OBJECT', value: entry.object_id };
+  if (entry.kind === 'OBJECT' && entry.object_id) {
+    return {
+      type: entry.object_role === 'ADMINISTRATOR' ? 'ADMINISTRATOR' : 'OBJECT',
+      value: entry.object_id
+    };
+  }
   return { type: 'SPECIAL', value: entry.special ?? 'OFF' };
 };
 

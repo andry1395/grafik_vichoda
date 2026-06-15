@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Employee, SpecialValue, WorkObject } from '../types';
-import { SPECIAL_LABELS, SPECIAL_OPTIONS, WEEKDAY_SHORT } from '../utils/constants';
+import type { CellValue, Employee, SpecialValue, WorkObject } from '../types';
+import { getAdministratorLabel, isMnevnikiObject, SPECIAL_LABELS, SPECIAL_OPTIONS, WEEKDAY_SHORT } from '../utils/constants';
 import { buildDateKey, getWeekdayIndexMondayFirst } from '../utils/date';
 
 const parseDateToUtc = (value: string): number => {
@@ -34,8 +34,8 @@ interface ScheduleTableProps {
   readOnly?: boolean;
   selectedDate?: string | null;
   visibleDates?: string[] | null;
-  getCellValue: (employeeId: string, date: string) => { type: 'OBJECT'; value: string } | { type: 'SPECIAL'; value: SpecialValue };
-  setCellValue?: (employeeId: string, date: string, value: { type: 'OBJECT'; value: string } | { type: 'SPECIAL'; value: SpecialValue }) => void;
+  getCellValue: (employeeId: string, date: string) => CellValue;
+  setCellValue?: (employeeId: string, date: string, value: CellValue) => void;
   clearCellValue?: (employeeId: string, date: string) => void;
 }
 
@@ -74,6 +74,8 @@ export const ScheduleTable = ({
     if (!selectedDate) return allDates;
     return allDates.includes(selectedDate) ? [selectedDate] : allDates;
   }, [allDates, selectedDate, visibleDates]);
+  const activeObjects = objects.filter((item) => item.active);
+  const administratorObjects = activeObjects.filter((item) => item.has_administrator === true && isMnevnikiObject(item));
 
 
   const objectAssignmentsByDate = useMemo(() => {
@@ -83,11 +85,13 @@ export const ScheduleTable = ({
       assignments[date] = {};
       for (const employee of employees) {
         const cell = getCellValue(employee.id, date);
-        if (cell.type !== 'OBJECT') continue;
+        if (cell.type !== 'OBJECT' && cell.type !== 'ADMINISTRATOR') continue;
 
         const current = assignments[date][cell.value] ?? { total: 0, mechanics: 0, trainees: 0 };
         current.total += 1;
-        if (employee.role === 'trainee') {
+        if (cell.type === 'ADMINISTRATOR') {
+          // Administrator covers the object, but is not counted as a mechanic in staffing warnings.
+        } else if (employee.role === 'trainee') {
           current.trainees += 1;
         } else {
           current.mechanics += 1;
@@ -121,7 +125,7 @@ export const ScheduleTable = ({
     const toIndex = allDates.indexOf(bulkToDate);
     if (fromIndex < 0 || toIndex < 0) return;
 
-    const [type, value] = massValue.split(':') as ['OBJECT' | 'SPECIAL', string];
+    const [type, value] = massValue.split(':') as ['OBJECT' | 'ADMINISTRATOR' | 'SPECIAL', string];
     const [start, end] = fromIndex <= toIndex ? [fromIndex, toIndex] : [toIndex, fromIndex];
     const targetEmployees = bulkEmployee === 'ALL' ? employees : employees.filter((employee) => employee.id === bulkEmployee);
 
@@ -129,8 +133,8 @@ export const ScheduleTable = ({
       for (let index = start; index <= end; index += 1) {
         const date = allDates[index];
         if (!date) continue;
-        if (type === 'OBJECT') {
-          setCellValue(employee.id, date, { type: 'OBJECT', value });
+        if (type === 'OBJECT' || type === 'ADMINISTRATOR') {
+          setCellValue(employee.id, date, { type, value });
         } else {
           setCellValue(employee.id, date, { type: 'SPECIAL', value: value as SpecialValue });
         }
@@ -195,14 +199,21 @@ export const ScheduleTable = ({
             </select>
             <input type="date" value={bulkFromDate} onChange={(event) => setBulkFromDate(event.target.value)} />
             <input type="date" value={bulkToDate} onChange={(event) => setBulkToDate(event.target.value)} />
-            <select value={massValue} onChange={(event) => setMassValue(event.target.value)}>
-              {objects
-                .filter((item) => item.active)
-                .map((objectItem) => (
+            <select
+              className={massValue.startsWith('ADMINISTRATOR:') ? 'administrator-select' : ''}
+              value={massValue}
+              onChange={(event) => setMassValue(event.target.value)}
+            >
+              {activeObjects.map((objectItem) => (
                   <option key={objectItem.id} value={`OBJECT:${objectItem.id}`}>
                     Объект: {objectItem.short_ru || objectItem.name_ru}
                   </option>
                 ))}
+              {administratorObjects.map((objectItem) => (
+                <option className="administrator-option" key={`administrator-${objectItem.id}`} value={`ADMINISTRATOR:${objectItem.id}`}>
+                  {getAdministratorLabel(objectItem)}
+                </option>
+              ))}
               {SPECIAL_OPTIONS.map((option) => (
                 <option key={option.value} value={`SPECIAL:${option.value}`}>
                   {option.description} ({option.label})
@@ -281,19 +292,29 @@ export const ScheduleTable = ({
                 <td className="sticky-col">{formatEmployeeDisplayName(employee.full_name)}</td>
                 {dates.map((date) => {
                   const value = getCellValue(employee.id, date);
-                  const objectName = value.type === 'OBJECT' ? objects.find((item) => item.id === value.value)?.short_ru ?? '—' : '';
-                  const display = value.type === 'OBJECT' ? objectName : SPECIAL_LABELS[value.value];
+                  const isObjectAssignment = value.type === 'OBJECT' || value.type === 'ADMINISTRATOR';
+                  const objectItem = isObjectAssignment ? objects.find((item) => item.id === value.value) : undefined;
+                  const display =
+                    value.type === 'ADMINISTRATOR'
+                      ? objectItem
+                        ? getAdministratorLabel(objectItem)
+                        : '—'
+                      : value.type === 'OBJECT'
+                        ? objectItem?.short_ru ?? '—'
+                        : SPECIAL_LABELS[value.value];
                   const isEmployeeOffDay = value.type === 'SPECIAL' && value.value === 'OFF';
-                  const assignment = value.type === 'OBJECT' ? objectAssignmentsByDate[date]?.[value.value] : undefined;
-                  const isSingleEmployeeOnObject = value.type === 'OBJECT' && (assignment?.total ?? 0) === 1;
+                  const assignment = isObjectAssignment ? objectAssignmentsByDate[date]?.[value.value] : undefined;
+                  const isSingleEmployeeOnObject = isObjectAssignment && (assignment?.total ?? 0) === 1;
                   const isTraineeOnlyShift = value.type === 'OBJECT' && (assignment?.total ?? 0) > 0 && (assignment?.mechanics ?? 0) === 0;
                   const isTooManyMechanicsShift = value.type === 'OBJECT' && (assignment?.mechanics ?? 0) > 2;
+                  const administratorClass = value.type === 'ADMINISTRATOR' ? 'administrator-assignment' : '';
 
                   return (
                     <td
                       key={date}
                       className={[
                         isEmployeeOffDay ? 'employee-off-day' : '',
+                        administratorClass,
                         isSingleEmployeeOnObject ? 'single-employee-object-day' : '',
                         isTraineeOnlyShift ? 'trainee-only-shift-day' : '',
                         isTooManyMechanicsShift ? 'too-many-mechanics-shift-day' : ''
@@ -314,24 +335,32 @@ export const ScheduleTable = ({
                         <span>{display}</span>
                       ) : (
                         <select
+                          className={administratorClass}
                           value={`${value.type}:${value.value}`}
                           onChange={(event) => {
                             if (!setCellValue) return;
-                            const [type, raw] = event.target.value.split(':') as ['OBJECT' | 'SPECIAL', string];
-                            if (type === 'OBJECT') {
-                              setCellValue(employee.id, date, { type: 'OBJECT', value: raw });
+                            const [type, raw] = event.target.value.split(':') as ['OBJECT' | 'ADMINISTRATOR' | 'SPECIAL', string];
+                            if (type === 'OBJECT' || type === 'ADMINISTRATOR') {
+                              setCellValue(employee.id, date, { type, value: raw });
                             } else {
                               setCellValue(employee.id, date, { type: 'SPECIAL', value: raw as SpecialValue });
                             }
                           }}
                         >
-                          {objects
-                            .filter((item) => item.active)
-                            .map((objectItem) => (
+                          {activeObjects.map((objectItem) => (
                               <option key={objectItem.id} value={`OBJECT:${objectItem.id}`}>
                                 {objectItem.short_ru || objectItem.name_ru}
                               </option>
                             ))}
+                          {administratorObjects.map((objectItem) => (
+                            <option
+                              className="administrator-option"
+                              key={`administrator-${objectItem.id}`}
+                              value={`ADMINISTRATOR:${objectItem.id}`}
+                            >
+                              {getAdministratorLabel(objectItem)}
+                            </option>
+                          ))}
                           <option disabled>────────</option>
                           {SPECIAL_OPTIONS.map((option) => (
                             <option key={option.value} value={`SPECIAL:${option.value}`}>

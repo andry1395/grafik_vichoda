@@ -295,7 +295,10 @@ export const MePage = (): JSX.Element => {
               const entry = dataService.getVisibleEntryForEmployee(selectedAdminId, monthKey, employeeId, date);
               if (!entry) return { type: 'SPECIAL', value: 'OFF' } as const;
               if (entry.kind === 'OBJECT' && entry.object_id) {
-                return { type: 'OBJECT', value: entry.object_id } as const;
+                return {
+                  type: entry.object_role === 'ADMINISTRATOR' ? 'ADMINISTRATOR' : 'OBJECT',
+                  value: entry.object_id
+                } as const;
               }
               return { type: 'SPECIAL', value: entry.special ?? 'OFF' } as const;
             }}

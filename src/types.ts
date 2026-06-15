@@ -2,6 +2,12 @@ export type MonthStatus = 'draft' | 'published';
 export type EntryKind = 'OBJECT' | 'SPECIAL';
 export type SpecialValue = 'OFF' | 'VACATION' | 'SICK' | 'STUDY';
 export type EmployeeRole = 'mechanic' | 'trainee';
+export type ObjectRole = 'ADMINISTRATOR';
+
+export type CellValue =
+  | { type: 'OBJECT'; value: string }
+  | { type: 'ADMINISTRATOR'; value: string }
+  | { type: 'SPECIAL'; value: SpecialValue };
 
 export interface AdminUser {
   id: string;
@@ -26,11 +32,13 @@ export interface WorkObject {
   name_ru: string;
   short_ru: string;
   active: boolean;
+  has_administrator?: boolean;
 }
 
 export interface ScheduleEntry {
   kind: EntryKind;
   object_id?: string;
+  object_role?: ObjectRole;
   special?: SpecialValue;
 }
 

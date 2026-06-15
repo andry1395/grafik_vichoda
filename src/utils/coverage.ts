@@ -1,4 +1,4 @@
-import type { Employee, SpecialValue, WorkObject } from '../types';
+import type { CellValue, Employee, WorkObject } from '../types';
 import { buildDateKey, daysInMonth, formatDateRu } from './date';
 
 interface CoverageParams {
@@ -6,7 +6,7 @@ interface CoverageParams {
   month: number;
   employees: Employee[];
   objects: WorkObject[];
-  getCellValue: (employeeId: string, date: string) => { type: 'OBJECT'; value: string } | { type: 'SPECIAL'; value: SpecialValue };
+  getCellValue: (employeeId: string, date: string) => CellValue;
 }
 
 export interface CoverageIssue {
@@ -30,7 +30,7 @@ export const getCoverageIssues = ({ year, month, employees, objects, getCellValu
 
     for (const employee of employees) {
       const cell = getCellValue(employee.id, date);
-      if (cell.type === 'OBJECT') {
+      if (cell.type === 'OBJECT' || cell.type === 'ADMINISTRATOR') {
         assigned.add(cell.value);
       }
     }

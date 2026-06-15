@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ScheduleTable } from '../components/ScheduleTable';
 import { dataService } from '../services/dataService';
-import type { ScheduleEntry, SpecialValue } from '../types';
+import type { CellValue, ScheduleEntry, SpecialValue } from '../types';
 import { buildDateKey, daysInMonth, formatDateDmy, getWeekDatesMondayFirst } from '../utils/date';
 import { exportMonthToXlsx } from '../utils/export';
 import { coverageObjectStatusToText, getCoverageIssues, getCoverageStatusByObject } from '../utils/coverage';
@@ -51,10 +51,15 @@ export const AdminMonthPage = (): JSX.Element => {
   const getDraftCellValue = (
     employeeId: string,
     date: string
-  ): { type: 'OBJECT'; value: string } | { type: 'SPECIAL'; value: SpecialValue } => {
+  ): CellValue => {
     const entry = draftEntries[getEntryKey(employeeId, date)];
     if (!entry) return { type: 'SPECIAL', value: 'OFF' };
-    if (entry.kind === 'OBJECT' && entry.object_id) return { type: 'OBJECT', value: entry.object_id };
+    if (entry.kind === 'OBJECT' && entry.object_id) {
+      return {
+        type: entry.object_role === 'ADMINISTRATOR' ? 'ADMINISTRATOR' : 'OBJECT',
+        value: entry.object_id
+      };
+    }
     return { type: 'SPECIAL', value: entry.special ?? 'OFF' };
   };
 
@@ -101,7 +106,7 @@ export const AdminMonthPage = (): JSX.Element => {
     return employeesByFilter.filter((employee) =>
       periodDates.some((date) => {
         const cell = getDraftCellValue(employee.id, date);
-        return cell.type === 'OBJECT' && objectFilterIds.includes(cell.value);
+        return (cell.type === 'OBJECT' || cell.type === 'ADMINISTRATOR') && objectFilterIds.includes(cell.value);
       })
     );
   }, [employeesByFilter, objectFilterIds, periodDates, draftEntries]);
@@ -128,7 +133,7 @@ export const AdminMonthPage = (): JSX.Element => {
       employees.map((employee) => {
         const workDays = periodDates.reduce((total, date) => {
           const cell = getDraftCellValue(employee.id, date);
-          return cell.type === 'OBJECT' ? total + 1 : total;
+          return cell.type === 'OBJECT' || cell.type === 'ADMINISTRATOR' ? total + 1 : total;
         }, 0);
 
         return {
@@ -366,8 +371,15 @@ export const AdminMonthPage = (): JSX.Element => {
         setCellValue={(employeeId, date, value) => {
           setDraftEntries((current) => {
             const key = getEntryKey(employeeId, date);
-            if (value.type === 'OBJECT') {
-              return { ...current, [key]: { kind: 'OBJECT', object_id: value.value } };
+            if (value.type === 'OBJECT' || value.type === 'ADMINISTRATOR') {
+              return {
+                ...current,
+                [key]: {
+                  kind: 'OBJECT',
+                  object_id: value.value,
+                  ...(value.type === 'ADMINISTRATOR' ? { object_role: 'ADMINISTRATOR' as const } : {})
+                }
+              };
             }
             return { ...current, [key]: { kind: 'SPECIAL', special: value.value as SpecialValue } };
           });
