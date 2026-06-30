@@ -3,7 +3,9 @@ import { firebaseConfig, isFirebaseConfigured } from './firebase';
 import {
   getFirestoreV2MigrationStatus,
   migrateAppDataToFirestoreV2,
+  pullAppDataFromFirestoreV2,
   pullAppDataFromFirestore,
+  syncAppDataToFirestoreV2,
   pushAppDataToFirestore
 } from './firestoreRest';
 import type { FirestoreV2MigrationStatus } from './firestoreRest';
@@ -30,6 +32,7 @@ export interface SyncState {
   lastPushAt: number | null;
   lastPullAt: number | null;
   nextPullAllowedAt: number | null;
+  remoteSource: 'legacy' | 'v2' | 'unknown';
   lastError: string | null;
 }
 
@@ -112,6 +115,7 @@ const getSyncState = (): SyncState => ({
   lastPushAt,
   lastPullAt,
   nextPullAllowedAt: pullBackoffUntil,
+  remoteSource,
   lastError
 });
 
@@ -131,6 +135,29 @@ let remotePushRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let localMutationVersion = 0;
 let lastPullAt: number | null = null;
 let pullBackoffUntil: number | null = null;
+let remoteSource: 'legacy' | 'v2' | 'unknown' = 'unknown';
+
+const pullRemoteAppData = async (): Promise<AppData | null> => {
+  const v2Data = await pullAppDataFromFirestoreV2(firebaseConfig.projectId, firebaseConfig.apiKey).catch(() => null);
+  if (v2Data) {
+    remoteSource = 'v2';
+    return v2Data;
+  }
+
+  const legacyData = await pullAppDataFromFirestore(firebaseConfig.projectId, firebaseConfig.apiKey);
+  remoteSource = 'legacy';
+  return legacyData;
+};
+
+const pushRemoteAppData = async (data: AppData): Promise<void> => {
+  const status = await getFirestoreV2MigrationStatus(firebaseConfig.projectId, firebaseConfig.apiKey).catch(() => null);
+  await pushAppDataToFirestore(firebaseConfig.projectId, firebaseConfig.apiKey, data);
+
+  if (status?.exists) {
+    await syncAppDataToFirestoreV2(firebaseConfig.projectId, firebaseConfig.apiKey, data);
+    remoteSource = 'v2';
+  }
+};
 
 const flushRemoteQueue = async (): Promise<void> => {
   if (remotePushInFlight || !queuedRemoteSnapshot || !isFirebaseConfigured()) return;
@@ -138,7 +165,7 @@ const flushRemoteQueue = async (): Promise<void> => {
   const snapshot = queuedRemoteSnapshot;
 
   try {
-    await pushAppDataToFirestore(firebaseConfig.projectId, firebaseConfig.apiKey, snapshot);
+    await pushRemoteAppData(snapshot);
     if (queuedRemoteSnapshot === snapshot) queuedRemoteSnapshot = null;
     lastPushAt = Date.now();
     setSyncError(null);
@@ -184,7 +211,7 @@ const runInitialRemotePull = (): void => {
 
   const mutationVersionAtStart = localMutationVersion;
 
-  pullAppDataFromFirestore(firebaseConfig.projectId, firebaseConfig.apiKey)
+  pullRemoteAppData()
     .then((remoteData) => {
       if (localMutationVersion !== mutationVersionAtStart) return;
 
@@ -569,7 +596,7 @@ const pullFromFirestore = async (): Promise<boolean> => {
   remoteSyncStarted = true;
 
   try {
-    const remoteData = await pullAppDataFromFirestore(firebaseConfig.projectId, firebaseConfig.apiKey);
+    const remoteData = await pullRemoteAppData();
     lastPullAt = Date.now();
     pullBackoffUntil = null;
     if (!remoteData) return false;
@@ -715,7 +742,7 @@ const subscribeToChanges = (listener: () => void): (() => void) => {
 const pushToFirestore = async (): Promise<void> => {
   if (!isFirebaseConfigured()) return;
   const payload = getFromStorage();
-  await pushAppDataToFirestore(firebaseConfig.projectId, firebaseConfig.apiKey, payload);
+  await pushRemoteAppData(payload);
 };
 
 const getV2MigrationStatus = async (): Promise<FirestoreV2MigrationStatus | null> => {
@@ -728,7 +755,10 @@ const migrateToFirestoreV2 = async (): Promise<FirestoreV2MigrationStatus> => {
     throw new Error('Firebase не настроен: миграция невозможна');
   }
 
-  await pullFromFirestore();
+  const legacyData = await pullAppDataFromFirestore(firebaseConfig.projectId, firebaseConfig.apiKey);
+  if (legacyData) {
+    updateLocalSnapshot(legacyData);
+  }
   const payload = getFromStorage();
   return migrateAppDataToFirestoreV2(firebaseConfig.projectId, firebaseConfig.apiKey, payload);
 };

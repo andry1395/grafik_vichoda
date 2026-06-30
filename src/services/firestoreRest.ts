@@ -20,6 +20,11 @@ interface FirestoreListResponse {
   nextPageToken?: string;
 }
 
+interface FirestoreV2Document<T> {
+  id: string;
+  payload: T;
+}
+
 export interface FirestoreV2Counts {
   admins: number;
   employees: number;
@@ -96,6 +101,11 @@ const v2CollectionUrl = (projectId: string, apiKey: string, path: string[], page
   return `${firestoreBaseUrl(projectId)}/${encodePath(path)}?${params.toString()}`;
 };
 
+const documentIdFromName = (name: string | undefined): string => {
+  if (!name) return '';
+  return decodeURIComponent(name.split('/').pop() ?? '');
+};
+
 
 const readFirestoreError = async (response: Response): Promise<string> => {
   try {
@@ -152,6 +162,14 @@ const writeV2Document = async (projectId: string, apiKey: string, path: string[]
   }
 };
 
+const deleteV2Document = async (projectId: string, apiKey: string, path: string[]): Promise<void> => {
+  const response = await fetch(v2DocumentUrl(projectId, apiKey, path), { method: 'DELETE' });
+  if (response.status === 404) return;
+  if (!response.ok) {
+    throw new Error(`Firestore v2 delete failed: ${await readFirestoreError(response)}`);
+  }
+};
+
 const readV2Document = async <T>(projectId: string, apiKey: string, path: string[]): Promise<T | null> => {
   const response = await fetch(v2DocumentUrl(projectId, apiKey, path));
   if (response.status === 404) return null;
@@ -164,24 +182,32 @@ const readV2Document = async <T>(projectId: string, apiKey: string, path: string
 };
 
 const listV2Documents = async <T>(projectId: string, apiKey: string, collectionPath: string[]): Promise<T[]> => {
-  const result: T[] = [];
+  const documents = await listV2DocumentRefs<T>(projectId, apiKey, collectionPath);
+  return documents.map((document) => document.payload);
+};
+
+const listV2DocumentRefs = async <T>(projectId: string, apiKey: string, collectionPath: string[]): Promise<Array<FirestoreV2Document<T>>> => {
+  const refs: Array<FirestoreV2Document<T>> = [];
   let pageToken: string | undefined;
 
   do {
     const response = await fetch(v2CollectionUrl(projectId, apiKey, collectionPath, pageToken));
-    if (response.status === 404) return result;
+    if (response.status === 404) return refs;
     if (!response.ok) {
       throw new Error(`Firestore v2 list failed: ${await readFirestoreError(response)}`);
     }
 
     const data = (await response.json()) as FirestoreListResponse;
     for (const document of data.documents ?? []) {
-      result.push(fromFirestoreValue(document.fields?.payload) as T);
+      refs.push({
+        id: documentIdFromName(document.name),
+        payload: fromFirestoreValue(document.fields?.payload) as T
+      });
     }
     pageToken = data.nextPageToken;
   } while (pageToken);
 
-  return result;
+  return refs.filter((document) => document.id);
 };
 
 const countAppData = (data: AppData): FirestoreV2Counts => ({
@@ -252,6 +278,57 @@ export const getFirestoreV2Counts = async (projectId: string, apiKey: string): P
   };
 };
 
+export const pullAppDataFromFirestoreV2 = async (projectId: string, apiKey: string): Promise<AppData | null> => {
+  const status = await getFirestoreV2MigrationStatus(projectId, apiKey);
+  if (!status.completed || !status.countsMatch) return null;
+
+  const admins = await listV2Documents<AppData['admins'][number]>(projectId, apiKey, ['appAdmins']);
+  const employees: AppData['employees'] = [];
+  const objects: AppData['objects'] = [];
+  const months: AppData['months'] = {};
+  const plans: AppData['plans'] = {};
+  const plan_ratio_defaults: AppData['plan_ratio_defaults'] = {};
+  const vacation_requests: AppData['vacation_requests'] = [];
+
+  for (const admin of admins) {
+    employees.push(...(await listV2Documents<AppData['employees'][number]>(projectId, apiKey, ['appAdmins', admin.id, 'employees'])));
+    objects.push(...(await listV2Documents<AppData['objects'][number]>(projectId, apiKey, ['appAdmins', admin.id, 'objects'])));
+    vacation_requests.push(
+      ...(await listV2Documents<AppData['vacation_requests'][number]>(projectId, apiKey, ['appAdmins', admin.id, 'vacations']))
+    );
+
+    const adminMonths = await listV2DocumentRefs<AppData['months'][string]>(projectId, apiKey, ['appAdmins', admin.id, 'months']);
+    for (const month of adminMonths) {
+      months[`${admin.id}__${month.id}`] = month.payload;
+    }
+
+    const adminPlans = await listV2DocumentRefs<AppData['plans'][string]>(projectId, apiKey, ['appAdmins', admin.id, 'plans']);
+    for (const plan of adminPlans) {
+      plans[`${admin.id}__${plan.id}`] = plan.payload;
+    }
+
+    const defaults = await readV2Document<AppData['plan_ratio_defaults'][string]>(projectId, apiKey, [
+      'appAdmins',
+      admin.id,
+      'planRatioDefaults',
+      'default'
+    ]);
+    if (defaults) {
+      plan_ratio_defaults[admin.id] = defaults;
+    }
+  }
+
+  return {
+    admins,
+    employees,
+    objects,
+    months,
+    plans,
+    plan_ratio_defaults,
+    vacation_requests
+  };
+};
+
 export const getFirestoreV2MigrationStatus = async (projectId: string, apiKey: string): Promise<FirestoreV2MigrationStatus> => {
   const meta = await readV2Document<{
     completed?: boolean;
@@ -289,37 +366,110 @@ export const migrateAppDataToFirestoreV2 = async (
   apiKey: string,
   data: AppData
 ): Promise<FirestoreV2MigrationStatus> => {
+  return syncAppDataToFirestoreV2(projectId, apiKey, data);
+};
+
+const deleteMissingDocuments = async (
+  projectId: string,
+  apiKey: string,
+  collectionPath: string[],
+  desiredIds: Set<string>
+): Promise<void> => {
+  const existing = await listV2DocumentRefs(projectId, apiKey, collectionPath);
+  for (const document of existing) {
+    if (!desiredIds.has(document.id)) {
+      await deleteV2Document(projectId, apiKey, [...collectionPath, document.id]);
+    }
+  }
+};
+
+export const syncAppDataToFirestoreV2 = async (
+  projectId: string,
+  apiKey: string,
+  data: AppData
+): Promise<FirestoreV2MigrationStatus> => {
   const sourceCounts = countAppData(data);
   const fingerprint = sourceFingerprint(data);
+  await writeV2Document(projectId, apiKey, ['appDataV2', 'meta'], {
+    schema_version: 2,
+    completed: false,
+    migrated_at: new Date().toISOString(),
+    source_fingerprint: fingerprint,
+    source_counts: sourceCounts,
+    v2_counts: null
+  });
+
+  const adminsById = new Map(data.admins.map((admin) => [admin.id, admin]));
+  const desiredAdminIds = new Set(adminsById.keys());
+  const existingAdmins = await listV2DocumentRefs<{ id: string }>(projectId, apiKey, ['appAdmins']);
+  const allAdminIds = new Set([...desiredAdminIds, ...existingAdmins.map((admin) => admin.id)]);
 
   for (const admin of data.admins) {
     await writeV2Document(projectId, apiKey, ['appAdmins', admin.id], admin);
   }
 
-  for (const employee of data.employees) {
-    await writeV2Document(projectId, apiKey, ['appAdmins', employee.admin_id, 'employees', employee.id], employee);
-  }
+  for (const adminId of allAdminIds) {
+    const employees = data.employees.filter((employee) => employee.admin_id === adminId);
+    const objects = data.objects.filter((objectItem) => objectItem.admin_id === adminId);
+    const vacations = data.vacation_requests.filter((request) => request.admin_id === adminId);
+    const monthsForAdmin = Object.entries(data.months).filter(([key]) => splitMonthStorageKey(key).adminId === adminId);
+    const plansForAdmin = Object.entries(data.plans).filter(([key]) => splitPlanStorageKey(key).adminId === adminId);
 
-  for (const objectItem of data.objects) {
-    await writeV2Document(projectId, apiKey, ['appAdmins', objectItem.admin_id, 'objects', objectItem.id], objectItem);
-  }
+    await deleteMissingDocuments(projectId, apiKey, ['appAdmins', adminId, 'employees'], new Set(employees.map((employee) => employee.id)));
+    await deleteMissingDocuments(projectId, apiKey, ['appAdmins', adminId, 'objects'], new Set(objects.map((objectItem) => objectItem.id)));
+    await deleteMissingDocuments(projectId, apiKey, ['appAdmins', adminId, 'vacations'], new Set(vacations.map((request) => request.id)));
+    await deleteMissingDocuments(
+      projectId,
+      apiKey,
+      ['appAdmins', adminId, 'months'],
+      new Set(monthsForAdmin.map(([key]) => splitMonthStorageKey(key).monthKey))
+    );
+    await deleteMissingDocuments(
+      projectId,
+      apiKey,
+      ['appAdmins', adminId, 'plans'],
+      new Set(plansForAdmin.map(([key]) => {
+        const { objectId, monthKey } = splitPlanStorageKey(key);
+        return `${objectId}__${monthKey}`;
+      }))
+    );
+    await deleteMissingDocuments(
+      projectId,
+      apiKey,
+      ['appAdmins', adminId, 'planRatioDefaults'],
+      new Set(data.plan_ratio_defaults[adminId] ? ['default'] : [])
+    );
 
-  for (const [key, month] of Object.entries(data.months)) {
-    const { adminId, monthKey } = splitMonthStorageKey(key);
-    await writeV2Document(projectId, apiKey, ['appAdmins', adminId, 'months', monthKey], month);
-  }
+    for (const employee of employees) {
+      await writeV2Document(projectId, apiKey, ['appAdmins', employee.admin_id, 'employees', employee.id], employee);
+    }
 
-  for (const [adminId, defaults] of Object.entries(data.plan_ratio_defaults)) {
-    await writeV2Document(projectId, apiKey, ['appAdmins', adminId, 'planRatioDefaults', 'default'], defaults);
-  }
+    for (const objectItem of objects) {
+      await writeV2Document(projectId, apiKey, ['appAdmins', objectItem.admin_id, 'objects', objectItem.id], objectItem);
+    }
 
-  for (const [key, plan] of Object.entries(data.plans)) {
-    const { adminId, objectId, monthKey } = splitPlanStorageKey(key);
-    await writeV2Document(projectId, apiKey, ['appAdmins', adminId, 'plans', `${objectId}__${monthKey}`], plan);
-  }
+    for (const request of vacations) {
+      await writeV2Document(projectId, apiKey, ['appAdmins', request.admin_id, 'vacations', request.id], request);
+    }
 
-  for (const request of data.vacation_requests) {
-    await writeV2Document(projectId, apiKey, ['appAdmins', request.admin_id, 'vacations', request.id], request);
+    for (const [key, month] of monthsForAdmin) {
+      const { monthKey } = splitMonthStorageKey(key);
+      await writeV2Document(projectId, apiKey, ['appAdmins', adminId, 'months', monthKey], month);
+    }
+
+    for (const [key, plan] of plansForAdmin) {
+      const { objectId, monthKey } = splitPlanStorageKey(key);
+      await writeV2Document(projectId, apiKey, ['appAdmins', adminId, 'plans', `${objectId}__${monthKey}`], plan);
+    }
+
+    const defaults = data.plan_ratio_defaults[adminId];
+    if (defaults) {
+      await writeV2Document(projectId, apiKey, ['appAdmins', adminId, 'planRatioDefaults', 'default'], defaults);
+    }
+
+    if (!desiredAdminIds.has(adminId)) {
+      await deleteV2Document(projectId, apiKey, ['appAdmins', adminId]);
+    }
   }
 
   const v2Counts = await getFirestoreV2Counts(projectId, apiKey);
