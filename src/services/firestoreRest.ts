@@ -96,6 +96,24 @@ const v2CollectionUrl = (projectId: string, apiKey: string, path: string[], page
   return `${firestoreBaseUrl(projectId)}/${encodePath(path)}?${params.toString()}`;
 };
 
+const FIRESTORE_REQUEST_TIMEOUT_MS = 20000;
+
+const fetchWithTimeout = async (url: string, options?: RequestInit): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), FIRESTORE_REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Firestore request timed out');
+    }
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
+};
+
 
 const readFirestoreError = async (response: Response): Promise<string> => {
   try {
@@ -109,7 +127,7 @@ const readFirestoreError = async (response: Response): Promise<string> => {
 };
 
 export const pullAppDataFromFirestore = async (projectId: string, apiKey: string): Promise<AppData | null> => {
-  const response = await fetch(documentUrl(projectId, apiKey));
+  const response = await fetchWithTimeout(documentUrl(projectId, apiKey));
   if (response.status === 404) return null;
   if (!response.ok) {
     throw new Error(`Firestore pull failed: ${await readFirestoreError(response)}`);
@@ -121,7 +139,7 @@ export const pullAppDataFromFirestore = async (projectId: string, apiKey: string
 };
 
 export const pushAppDataToFirestore = async (projectId: string, apiKey: string, payload: AppData): Promise<void> => {
-  const response = await fetch(documentUrl(projectId, apiKey), {
+  const response = await fetchWithTimeout(documentUrl(projectId, apiKey), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -137,7 +155,7 @@ export const pushAppDataToFirestore = async (projectId: string, apiKey: string, 
 };
 
 const writeV2Document = async (projectId: string, apiKey: string, path: string[], payload: unknown): Promise<void> => {
-  const response = await fetch(v2DocumentUrl(projectId, apiKey, path), {
+  const response = await fetchWithTimeout(v2DocumentUrl(projectId, apiKey, path), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -153,7 +171,7 @@ const writeV2Document = async (projectId: string, apiKey: string, path: string[]
 };
 
 const readV2Document = async <T>(projectId: string, apiKey: string, path: string[]): Promise<T | null> => {
-  const response = await fetch(v2DocumentUrl(projectId, apiKey, path));
+  const response = await fetchWithTimeout(v2DocumentUrl(projectId, apiKey, path));
   if (response.status === 404) return null;
   if (!response.ok) {
     throw new Error(`Firestore v2 read failed: ${await readFirestoreError(response)}`);
@@ -168,7 +186,7 @@ const listV2Documents = async <T>(projectId: string, apiKey: string, collectionP
   let pageToken: string | undefined;
 
   do {
-    const response = await fetch(v2CollectionUrl(projectId, apiKey, collectionPath, pageToken));
+    const response = await fetchWithTimeout(v2CollectionUrl(projectId, apiKey, collectionPath, pageToken));
     if (response.status === 404) return result;
     if (!response.ok) {
       throw new Error(`Firestore v2 list failed: ${await readFirestoreError(response)}`);
