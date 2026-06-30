@@ -33,6 +33,7 @@ export const SyncDebugPage = (): JSX.Element => {
           <ul>
             <li>Firebase configured: {syncState.configured ? '✅ да' : '❌ нет'}</li>
             <li>Pending push: {syncState.pendingPush ? '⏳ есть' : '✅ нет'}</li>
+            <li>Источник чтения: {syncState.remoteSource === 'v2' ? 'Firestore v2' : syncState.remoteSource === 'legacy' ? 'Legacy appData/main' : '—'}</li>
             <li>Последний успешный pull: {syncState.lastPullAt ? new Date(syncState.lastPullAt).toLocaleString('ru-RU') : '—'}</li>
             <li>
               Следующий pull разрешен:{' '}
@@ -54,6 +55,12 @@ export const SyncDebugPage = (): JSX.Element => {
               <li>Миграция завершена: {migrationStatus.completed ? '✅ да' : '❌ нет'}</li>
               <li>Счетчики совпали: {migrationStatus.countsMatch ? '✅ да' : '❌ нет'}</li>
               <li>Дата миграции: {migrationStatus.migratedAt ? new Date(migrationStatus.migratedAt).toLocaleString('ru-RU') : '—'}</li>
+              <li>
+                Режим после миграции:{' '}
+                {migrationStatus.completed && migrationStatus.countsMatch
+                  ? 'чтение и основная запись через v2, appData/main остается backup'
+                  : 'legacy appData/main остается источником правды'}
+              </li>
               {migrationStatus.sourceCounts && migrationStatus.v2Counts && (
                 <li>
                   Старые/новые записи: админы {migrationStatus.sourceCounts.admins}/{migrationStatus.v2Counts.admins}, сотрудники{' '}
