@@ -136,6 +136,7 @@ const flushRemoteQueue = async (): Promise<void> => {
   if (remotePushInFlight || !queuedRemoteSnapshot || !isFirebaseConfigured()) return;
   remotePushInFlight = true;
   const snapshot = queuedRemoteSnapshot;
+  let shouldFlushNextSnapshot = false;
 
   try {
     await pushAppDataToFirestore(firebaseConfig.projectId, firebaseConfig.apiKey, snapshot);
@@ -153,7 +154,8 @@ const flushRemoteQueue = async (): Promise<void> => {
     }
   } finally {
     remotePushInFlight = false;
-    if (queuedRemoteSnapshot) void flushRemoteQueue();
+    shouldFlushNextSnapshot = Boolean(queuedRemoteSnapshot && queuedRemoteSnapshot !== snapshot);
+    if (shouldFlushNextSnapshot) void flushRemoteQueue();
   }
 };
 
