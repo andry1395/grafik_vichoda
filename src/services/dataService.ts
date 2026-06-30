@@ -15,12 +15,15 @@ const createToken = (): string => Math.random().toString(36).slice(2, 12);
 const DEFAULT_EMPLOYEE_ROLE: EmployeeRole = 'mechanic';
 
 const FIRESTORE_PUSH_RETRY_MS = 2000;
-const FIRESTORE_PULL_INTERVAL_MS = 2000;
+const FIRESTORE_PULL_INTERVAL_MS = 15 * 60 * 1000;
+const FIRESTORE_PULL_BACKOFF_MS = 60 * 60 * 1000;
 
 export interface SyncState {
   configured: boolean;
   pendingPush: boolean;
   lastPushAt: number | null;
+  lastPullAt: number | null;
+  nextPullAllowedAt: number | null;
   lastError: string | null;
 }
 
@@ -101,6 +104,8 @@ const getSyncState = (): SyncState => ({
   configured: isFirebaseConfigured(),
   pendingPush: Boolean(queuedRemoteSnapshot),
   lastPushAt,
+  lastPullAt,
+  nextPullAllowedAt: pullBackoffUntil,
   lastError
 });
 
@@ -118,6 +123,8 @@ let queuedRemoteSnapshot: AppData | null = null;
 let remotePushInFlight = false;
 let remotePushRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let localMutationVersion = 0;
+let lastPullAt: number | null = null;
+let pullBackoffUntil: number | null = null;
 
 const flushRemoteQueue = async (): Promise<void> => {
   if (remotePushInFlight || !queuedRemoteSnapshot || !isFirebaseConfigured()) return;
@@ -553,17 +560,34 @@ const pullFromFirestore = async (): Promise<boolean> => {
     setSyncError('Firebase не настроен: чтение невозможно');
     return false;
   }
-  const remoteData = await pullAppDataFromFirestore(firebaseConfig.projectId, firebaseConfig.apiKey);
-  if (!remoteData) return false;
+  remoteSyncStarted = true;
 
-  const normalized = ensureDataShape(remoteData);
-  const nextFingerprint = computeSnapshotFingerprint(normalized);
-  if (nextFingerprint === lastSnapshotFingerprint) return false;
+  try {
+    const remoteData = await pullAppDataFromFirestore(firebaseConfig.projectId, firebaseConfig.apiKey);
+    lastPullAt = Date.now();
+    pullBackoffUntil = null;
+    if (!remoteData) return false;
 
-  updateLocalSnapshot(normalized);
-  setSyncError(null);
-  emitDataChanged();
-  return true;
+    const normalized = ensureDataShape(remoteData);
+    const nextFingerprint = computeSnapshotFingerprint(normalized);
+    if (nextFingerprint === lastSnapshotFingerprint) {
+      setSyncError(null);
+      emitDataChanged();
+      return false;
+    }
+
+    updateLocalSnapshot(normalized);
+    setSyncError(null);
+    emitDataChanged();
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ошибка чтения Firestore';
+    if (message.includes('429') || message.includes('RESOURCE_EXHAUSTED')) {
+      pullBackoffUntil = Date.now() + FIRESTORE_PULL_BACKOFF_MS;
+    }
+    setSyncError(message);
+    throw error;
+  }
 };
 
 const getEmployeeByToken = (adminId: string, token: string): Employee | null => {
@@ -631,10 +655,17 @@ const removeVacationRequest = (requestId: string): boolean => {
 let realtimeSyncTimer: ReturnType<typeof setInterval> | undefined;
 let realtimeSyncEventHandler: (() => void) | undefined;
 
-const runRealtimePull = (): void => {
-  void pullFromFirestore().catch((error) => {
-    const message = error instanceof Error ? error.message : 'Ошибка чтения Firestore';
-    setSyncError(message);
+const shouldPullFromFirestore = (): boolean => {
+  const now = Date.now();
+  if (pullBackoffUntil && now < pullBackoffUntil) return false;
+  if (lastPullAt && now - lastPullAt < FIRESTORE_PULL_INTERVAL_MS) return false;
+  return true;
+};
+
+const runThrottledRealtimePull = (): void => {
+  if (!shouldPullFromFirestore()) return;
+  void pullFromFirestore().catch(() => {
+    // pullFromFirestore already stores the readable sync error.
   });
 };
 
@@ -643,7 +674,7 @@ const startRealtimeSync = (): void => {
 
 
   realtimeSyncEventHandler = (): void => {
-    runRealtimePull();
+    if (document.visibilityState === 'visible') runThrottledRealtimePull();
     if (queuedRemoteSnapshot) void flushRemoteQueue();
   };
 
@@ -651,11 +682,9 @@ const startRealtimeSync = (): void => {
   document.addEventListener('visibilitychange', realtimeSyncEventHandler);
 
   realtimeSyncTimer = globalThis.setInterval(() => {
-    runRealtimePull();
+    if (document.visibilityState === 'visible') runThrottledRealtimePull();
     if (queuedRemoteSnapshot) void flushRemoteQueue();
   }, FIRESTORE_PULL_INTERVAL_MS);
-
-  runRealtimePull();
 };
 
 const stopRealtimeSync = (): void => {
