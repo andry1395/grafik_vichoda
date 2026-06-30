@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { dataService } from '../services/dataService';
 import type { EmployeeRole } from '../types';
 import { getSelectedAdminId } from '../utils/adminAuth';
@@ -15,9 +15,32 @@ export const EmployeesPage = (): JSX.Element => {
   const [editingRole, setEditingRole] = useState<EmployeeRole>('mechanic');
   const [editingPrimaryObjectId, setEditingPrimaryObjectId] = useState('');
   const [draggedEmployeeId, setDraggedEmployeeId] = useState<string | null>(null);
+  const draggedEmployeeIdRef = useRef<string | null>(null);
 
   const employees = dataService.getEmployeesByAdmin(selectedAdminId);
   const objects = dataService.getObjectsByAdmin(selectedAdminId).filter((item) => item.active);
+
+  const finishDrag = (): void => {
+    draggedEmployeeIdRef.current = null;
+    setDraggedEmployeeId(null);
+  };
+
+  const reorderEmployee = (targetEmployeeId: string): void => {
+    const sourceEmployeeId = draggedEmployeeIdRef.current ?? draggedEmployeeId;
+    if (!sourceEmployeeId || sourceEmployeeId === targetEmployeeId) return;
+
+    const orderedIds = employees.map((item) => item.id);
+    const fromIndex = orderedIds.indexOf(sourceEmployeeId);
+    const toIndex = orderedIds.indexOf(targetEmployeeId);
+    if (fromIndex < 0 || toIndex < 0) return;
+
+    orderedIds.splice(fromIndex, 1);
+    orderedIds.splice(toIndex, 0, sourceEmployeeId);
+    dataService.reorderEmployeesByAdmin(selectedAdminId, orderedIds);
+    setTick((value) => value + 1);
+    setNotice('Порядок сотрудников обновлен');
+    finishDrag();
+  };
 
   return (
     <section>
@@ -78,27 +101,26 @@ export const EmployeesPage = (): JSX.Element => {
           {employees.map((employee) => {
             const isEditing = editingId === employee.id;
             return (
-              <tr key={employee.id}>
+              <tr
+                key={employee.id}
+                onDragOver={(event) => {
+                  if (!editingId && draggedEmployeeIdRef.current) event.preventDefault();
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  if (isEditing) return;
+                  reorderEmployee(employee.id);
+                }}
+              >
                 <td
                   draggable={!isEditing}
-                  onDragStart={() => setDraggedEmployeeId(employee.id)}
-                  onDragOver={(event) => {
-                    event.preventDefault();
+                  onDragStart={(event) => {
+                    draggedEmployeeIdRef.current = employee.id;
+                    setDraggedEmployeeId(employee.id);
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', employee.id);
                   }}
-                  onDrop={() => {
-                    if (!draggedEmployeeId || draggedEmployeeId === employee.id) return;
-                    const orderedIds = employees.map((item) => item.id);
-                    const fromIndex = orderedIds.indexOf(draggedEmployeeId);
-                    const toIndex = orderedIds.indexOf(employee.id);
-                    if (fromIndex < 0 || toIndex < 0) return;
-                    orderedIds.splice(fromIndex, 1);
-                    orderedIds.splice(toIndex, 0, draggedEmployeeId);
-                    dataService.reorderEmployeesByAdmin(selectedAdminId, orderedIds);
-                    setTick((value) => value + 1);
-                    setNotice('Порядок сотрудников обновлен');
-                    setDraggedEmployeeId(null);
-                  }}
-                  onDragEnd={() => setDraggedEmployeeId(null)}
+                  onDragEnd={finishDrag}
                   title="Перетащите, чтобы изменить порядок"
                 >
                   ⇅
