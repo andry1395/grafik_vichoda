@@ -14,31 +14,66 @@ export const EmployeesPage = (): JSX.Element => {
   const [editingName, setEditingName] = useState('');
   const [editingRole, setEditingRole] = useState<EmployeeRole>('mechanic');
   const [editingPrimaryObjectId, setEditingPrimaryObjectId] = useState('');
-  const [draggedEmployeeId, setDraggedEmployeeId] = useState<string | null>(null);
+  const [isReorderMode, setIsReorderMode] = useState(false);
+  const [draftEmployeeIds, setDraftEmployeeIds] = useState<string[]>([]);
   const draggedEmployeeIdRef = useRef<string | null>(null);
 
   const employees = dataService.getEmployeesByAdmin(selectedAdminId);
   const objects = dataService.getObjectsByAdmin(selectedAdminId).filter((item) => item.active);
+  const employeeById = new Map(employees.map((employee) => [employee.id, employee]));
+  const orderedEmployees = isReorderMode
+    ? [
+        ...draftEmployeeIds.map((employeeId) => employeeById.get(employeeId)).filter((employee): employee is (typeof employees)[number] => Boolean(employee)),
+        ...employees.filter((employee) => !draftEmployeeIds.includes(employee.id))
+      ]
+    : employees;
 
   const finishDrag = (): void => {
     draggedEmployeeIdRef.current = null;
-    setDraggedEmployeeId(null);
   };
 
   const reorderEmployee = (targetEmployeeId: string): void => {
-    const sourceEmployeeId = draggedEmployeeIdRef.current ?? draggedEmployeeId;
+    if (!isReorderMode) return;
+    const sourceEmployeeId = draggedEmployeeIdRef.current;
     if (!sourceEmployeeId || sourceEmployeeId === targetEmployeeId) return;
 
-    const orderedIds = employees.map((item) => item.id);
+    const orderedIds = draftEmployeeIds.length > 0 ? [...draftEmployeeIds] : employees.map((item) => item.id);
     const fromIndex = orderedIds.indexOf(sourceEmployeeId);
     const toIndex = orderedIds.indexOf(targetEmployeeId);
     if (fromIndex < 0 || toIndex < 0) return;
 
     orderedIds.splice(fromIndex, 1);
     orderedIds.splice(toIndex, 0, sourceEmployeeId);
+    setDraftEmployeeIds(orderedIds);
+  };
+
+  const startReorder = (): void => {
+    setEditingId(null);
+    setDraftEmployeeIds(employees.map((employee) => employee.id));
+    setIsReorderMode(true);
+    setNotice('Режим изменения порядка включен. Перетащите строки и нажмите «Сохранить порядок».');
+  };
+
+  const cancelReorder = (): void => {
+    setIsReorderMode(false);
+    setDraftEmployeeIds([]);
+    finishDrag();
+    setNotice('Изменение порядка отменено');
+  };
+
+  const saveReorder = (): void => {
+    const orderedIds = draftEmployeeIds.filter((employeeId) => employeeById.has(employeeId));
+    if (orderedIds.length !== employees.length) {
+      setNotice('Не удалось сохранить порядок: список сотрудников изменился. Включите режим заново.');
+      setDraftEmployeeIds(employees.map((employee) => employee.id));
+      return;
+    }
+
     dataService.reorderEmployeesByAdmin(selectedAdminId, orderedIds);
+    setIsReorderMode(false);
+    setDraftEmployeeIds([]);
     setTick((value) => value + 1);
-    setNotice('Порядок сотрудников обновлен');
+    setNotice('Порядок сотрудников сохранен');
     finishDrag();
   };
 
@@ -47,12 +82,12 @@ export const EmployeesPage = (): JSX.Element => {
       <h1>Сотрудники</h1>
       {notice && <div className="notice">{notice}</div>}
       <div className="toolbar-row">
-        <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Фамилия Имя" />
-        <select value={newRole} onChange={(event) => setNewRole(event.target.value as EmployeeRole)}>
+        <input disabled={isReorderMode} value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Фамилия Имя" />
+        <select disabled={isReorderMode} value={newRole} onChange={(event) => setNewRole(event.target.value as EmployeeRole)}>
           <option value="mechanic">Механик</option>
           <option value="trainee">Стажер</option>
         </select>
-        <select value={newPrimaryObjectId} onChange={(event) => setNewPrimaryObjectId(event.target.value)}>
+        <select disabled={isReorderMode} value={newPrimaryObjectId} onChange={(event) => setNewPrimaryObjectId(event.target.value)}>
           <option value="">Главный объект (выберите)</option>
           {objects.map((objectItem) => (
             <option key={objectItem.id} value={objectItem.id}>
@@ -62,6 +97,7 @@ export const EmployeesPage = (): JSX.Element => {
         </select>
         <button
           type="button"
+          disabled={isReorderMode}
           onClick={() => {
             if (!fullName.trim()) return;
             if (!newPrimaryObjectId) {
@@ -84,6 +120,20 @@ export const EmployeesPage = (): JSX.Element => {
         >
           Добавить
         </button>
+        {isReorderMode ? (
+          <>
+            <button type="button" onClick={saveReorder}>
+              Сохранить порядок
+            </button>
+            <button type="button" onClick={cancelReorder}>
+              Отмена
+            </button>
+          </>
+        ) : (
+          <button type="button" onClick={startReorder} disabled={employees.length <= 1}>
+            Поменять порядок
+          </button>
+        )}
       </div>
       <table className="simple-table" key={tick}>
         <thead>
@@ -98,32 +148,32 @@ export const EmployeesPage = (): JSX.Element => {
           </tr>
         </thead>
         <tbody>
-          {employees.map((employee) => {
+          {orderedEmployees.map((employee) => {
             const isEditing = editingId === employee.id;
             return (
               <tr
                 key={employee.id}
                 onDragOver={(event) => {
-                  if (!editingId && draggedEmployeeIdRef.current) event.preventDefault();
+                  if (isReorderMode && !editingId && draggedEmployeeIdRef.current) event.preventDefault();
                 }}
                 onDrop={(event) => {
                   event.preventDefault();
-                  if (isEditing) return;
+                  if (!isReorderMode || isEditing) return;
                   reorderEmployee(employee.id);
                 }}
               >
                 <td
-                  draggable={!isEditing}
+                  draggable={isReorderMode && !isEditing}
                   onDragStart={(event) => {
+                    if (!isReorderMode) return;
                     draggedEmployeeIdRef.current = employee.id;
-                    setDraggedEmployeeId(employee.id);
                     event.dataTransfer.effectAllowed = 'move';
                     event.dataTransfer.setData('text/plain', employee.id);
                   }}
                   onDragEnd={finishDrag}
-                  title="Перетащите, чтобы изменить порядок"
+                  title={isReorderMode ? 'Перетащите, чтобы изменить порядок' : 'Нажмите «Поменять порядок», чтобы включить перетаскивание'}
                 >
-                  ⇅
+                  {isReorderMode ? '⇅' : '—'}
                 </td>
                 <td>{isEditing ? <input value={editingName} onChange={(event) => setEditingName(event.target.value)} /> : employee.full_name}</td>
                 <td>
@@ -191,6 +241,7 @@ export const EmployeesPage = (): JSX.Element => {
                     ) : (
                       <button
                         type="button"
+                        disabled={isReorderMode}
                         onClick={() => {
                           setEditingId(employee.id);
                           setEditingName(employee.full_name);
@@ -204,6 +255,7 @@ export const EmployeesPage = (): JSX.Element => {
 
                     <button
                       type="button"
+                      disabled={isReorderMode}
                       onClick={() => {
                         dataService.upsertEmployee({
                           id: employee.id,
@@ -224,6 +276,7 @@ export const EmployeesPage = (): JSX.Element => {
 
                     <button
                       type="button"
+                      disabled={isReorderMode}
                       onClick={() => {
                         if (!window.confirm(`Удалить сотрудника ${employee.full_name}?`)) return;
                         dataService.removeEmployee(employee.id);
