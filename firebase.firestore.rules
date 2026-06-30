@@ -1,10 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Этот проект пишет один документ: appData/main.
+    // Legacy snapshot. Keep this document while Firestore v2 migration is being verified.
     // ВНИМАНИЕ: правило ниже открытое (подходит только для MVP/внутреннего использования).
     // Для продакшна обязательно ограничьте доступ (auth/claims/валидация).
     match /appData/main {
+      allow read, write: if true;
+    }
+
+    // Firestore v2 split storage. appData/main remains the backup/source of truth during migration.
+    match /appDataV2/{document=**} {
+      allow read, write: if true;
+    }
+
+    match /appAdmins/{document=**} {
       allow read, write: if true;
     }
   }
