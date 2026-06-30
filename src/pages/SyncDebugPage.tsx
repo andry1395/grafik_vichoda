@@ -31,6 +31,13 @@ export const SyncDebugPage = (): JSX.Element => {
           <ul>
             <li>Firebase configured: {syncState.configured ? '✅ да' : '❌ нет'}</li>
             <li>Pending push: {syncState.pendingPush ? '⏳ есть' : '✅ нет'}</li>
+            <li>Последний успешный pull: {syncState.lastPullAt ? new Date(syncState.lastPullAt).toLocaleString('ru-RU') : '—'}</li>
+            <li>
+              Следующий pull разрешен:{' '}
+              {syncState.nextPullAllowedAt && syncState.nextPullAllowedAt > Date.now()
+                ? new Date(syncState.nextPullAllowedAt).toLocaleString('ru-RU')
+                : 'сейчас'}
+            </li>
             <li>Последняя успешная отправка: {syncState.lastPushAt ? new Date(syncState.lastPushAt).toLocaleString('ru-RU') : '—'}</li>
             <li>Последняя ошибка: {syncState.lastError ?? '—'}</li>
           </ul>
