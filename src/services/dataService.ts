@@ -1,6 +1,12 @@
 import type { AdminUser, AppData, CellValue, Employee, EmployeeRole, MonthData, PlanMetrics, PlanRatioDefaults, ScheduleEntry, VacationRequest, WorkObject } from '../types';
 import { firebaseConfig, isFirebaseConfigured } from './firebase';
-import { pullAppDataFromFirestore, pushAppDataToFirestore } from './firestoreRest';
+import {
+  getFirestoreV2MigrationStatus,
+  migrateAppDataToFirestoreV2,
+  pullAppDataFromFirestore,
+  pushAppDataToFirestore
+} from './firestoreRest';
+import type { FirestoreV2MigrationStatus } from './firestoreRest';
 
 const SUPER_ADMIN_ID = 'super-admin';
 
@@ -712,6 +718,21 @@ const pushToFirestore = async (): Promise<void> => {
   await pushAppDataToFirestore(firebaseConfig.projectId, firebaseConfig.apiKey, payload);
 };
 
+const getV2MigrationStatus = async (): Promise<FirestoreV2MigrationStatus | null> => {
+  if (!isFirebaseConfigured()) return null;
+  return getFirestoreV2MigrationStatus(firebaseConfig.projectId, firebaseConfig.apiKey);
+};
+
+const migrateToFirestoreV2 = async (): Promise<FirestoreV2MigrationStatus> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase не настроен: миграция невозможна');
+  }
+
+  await pullFromFirestore();
+  const payload = getFromStorage();
+  return migrateAppDataToFirestoreV2(firebaseConfig.projectId, firebaseConfig.apiKey, payload);
+};
+
 export const dataService = {
   SUPER_ADMIN_ID,
   getAppData: getFromStorage,
@@ -749,6 +770,8 @@ export const dataService = {
   removeVacationRequest,
   pullFromFirestore,
   pushToFirestore,
+  getV2MigrationStatus,
+  migrateToFirestoreV2,
   startRealtimeSync,
   stopRealtimeSync,
   subscribeToChanges,
