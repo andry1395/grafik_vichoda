@@ -126,6 +126,18 @@ const readFirestoreError = async (response: Response): Promise<string> => {
   }
 };
 
+const parseAppDataPayload = (value: FirestoreValue | undefined): AppData | null => {
+  const raw = fromFirestoreValue(value);
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as AppData;
+    } catch {
+      throw new Error('Firestore pull failed: appData payload JSON is invalid');
+    }
+  }
+  return raw as AppData | null;
+};
+
 export const pullAppDataFromFirestore = async (projectId: string, apiKey: string): Promise<AppData | null> => {
   const response = await fetchWithTimeout(documentUrl(projectId, apiKey));
   if (response.status === 404) return null;
@@ -134,8 +146,7 @@ export const pullAppDataFromFirestore = async (projectId: string, apiKey: string
   }
 
   const data = (await response.json()) as FirestoreDocument;
-  const raw = fromFirestoreValue(data.fields?.payload) as AppData | null;
-  return raw;
+  return parseAppDataPayload(data.fields?.payload);
 };
 
 export const pushAppDataToFirestore = async (projectId: string, apiKey: string, payload: AppData): Promise<void> => {
@@ -144,7 +155,7 @@ export const pushAppDataToFirestore = async (projectId: string, apiKey: string, 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       fields: {
-        payload: toFirestoreValue(payload)
+        payload: { stringValue: JSON.stringify(payload) }
       }
     })
   });
